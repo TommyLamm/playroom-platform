@@ -6,6 +6,8 @@
 
 Linux 上需要 Docker Engine 與 Compose v2+。平台來源 repository 必須公開，部署主機以 HTTPS 讀取指定分支；不把 GitHub 寫入憑證放到伺服器。可使用 main，或指定獨立的 production 分支。只有 repository 寫入者能改變伺服器執行的程式，請保護該分支並檢查 CI。
 
+全新部署可設定 `PLATFORM_HOST`、`GAMES_HOST`、`ACME_EMAIL` 後執行 `bash scripts/deploy-ota.sh`。指令拒絕覆寫既有 `.env` 或 OTA 狀態，自動產生更新 token 與隨機管理員密碼，後者僅儲存在主機的 `ota-state/initial-admin.txt`（mode 600）。不會把密碼輸出到日誌；亦可自行提供 `ADMIN_PASSWORD`。只有設定 `SEED_DEMOS=1` 時才加入範例遊戲。
+
 在固定部署路徑（例如 `/opt/playroom-platform`）clone repository。建立 `.env`，除了正常部署的兩個 HTTPS 主機名稱，增加：
 
 ```dotenv

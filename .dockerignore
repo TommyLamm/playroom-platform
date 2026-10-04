@@ -11,6 +11,8 @@ playwright-report
 .env.*
 ota-state
 output
+.playwright-cli
+.playwright
 *.pem
 *.key
 *.log
