@@ -1,3 +1,4 @@
+import { Playroom } from './playroom-sdk.js';
 const config = await fetch('./config.json').then((r) => r.json());
 const colors =
   config.mode === 'colors' || new URLSearchParams(location.search).get('mode') === 'colors';
@@ -18,6 +19,7 @@ let target = colors ? 7 : 12;
 let running = false;
 let endsAt = 0;
 let timer;
+let accountRun = Promise.resolve(null);
 const format = (value) => String(value).padStart(2, '0');
 bestEl.textContent = format(best);
 if (colors) {
@@ -59,6 +61,7 @@ function render() {
   } else tiles.forEach((tile, i) => tile.classList.toggle('lit', i === target));
 }
 function finish() {
+  if (!running) return;
   running = false;
   clearInterval(timer);
   best = Math.max(best, score);
@@ -71,8 +74,11 @@ function finish() {
   start.disabled = false;
   start.innerHTML = '再玩一次 <span>↗</span>';
   result.textContent = `這次找到 ${score} ${colors ? '個色塊' : '道光'}，最佳紀錄 ${best} 分。`;
+  const finalScore = score;
+  void accountRun.then((run) => run && Playroom.finishRun({ runId: run.runId, score: finalScore })).catch(() => {});
 }
 start.addEventListener('click', () => {
+  accountRun = Playroom.startRun().catch(() => null);
   score = 0;
   running = true;
   endsAt = performance.now() + 20000;

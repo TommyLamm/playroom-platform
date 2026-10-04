@@ -1,0 +1,131 @@
+import { test, expect } from '@playwright/test';
+
+test('account settings protect private careers, revoke other sessions and rotate passwords', async ({ page, browser }, info) => {
+  const username = `settings_${info.project.name}`;
+  const password = 'settings-browser-password';
+  const newPassword = 'settings-updated-password';
+  const address = info.project.name === 'mobile' ? '192.0.2.112' : '192.0.2.111';
+  await page.route(/\/api\/v1\/(register|login)$/, (route) => route.continue({ headers: {
+    ...route.request().headers(), 'x-forwarded-for': address,
+  } }));
+  await page.goto('/register');
+  await page.getByLabel('帳號', { exact: true }).fill(username);
+  await page.getByLabel('密碼', { exact: true }).fill(password);
+  await page.getByLabel('確認密碼', { exact: true }).fill(password);
+  await page.getByRole('button', { name: '建立帳號', exact: true }).click();
+  await expect(page.locator('.account-name')).toHaveText(username);
+  const session = await (await page.request.get('/api/v1/session')).json();
+  const headers = { Origin: 'http://localhost:3070', 'X-CSRF-Token': session.csrf };
+  const { game } = await (await page.request.get('/api/v1/games/signal-tap')).json();
+  const { playId } = await (await page.request.post('/api/v1/games/signal-tap/plays', { headers, data: { version: game.version, requestId: crypto.randomUUID() } })).json();
+  const { runId } = await (await page.request.post(`/api/v1/plays/${playId}/runs`, { headers, data: { requestId: crypto.randomUUID() } })).json();
+  expect((await page.request.post(`/api/v1/runs/${runId}/finish`, { headers, data: { score: 4 } })).status()).toBe(200);
+  const another = await browser.newContext();
+  const guest = await browser.newContext();
+  try {
+    const device = await another.newPage();
+    const guestPage = await guest.newPage();
+    const authHeaders = { Origin: 'http://localhost:3070', 'X-Forwarded-For': address };
+    const login = () => device.request.post('http://localhost:3070/api/v1/login', { headers: authHeaders, data: { username, password } });
+    expect((await login()).status()).toBe(200);
+    await page.locator('.account-menu summary').click();
+    await page.getByRole('link', { name: '帳號設定', exact: true }).click();
+    await expect(page.getByRole('heading', { name: '帳號設定', exact: true })).toBeVisible();
+    const privacy = page.getByRole('region', { name: '生涯公開範圍', exact: true });
+    await privacy.getByLabel('生涯公開範圍', { exact: true }).selectOption('limited');
+    await privacy.getByRole('button', { name: '儲存公開範圍' }).click();
+    await expect(privacy.getByRole('status')).toContainText('已儲存');
+    const limited = await (await guestPage.request.get(`http://localhost:3070/api/v1/players/${username}/career`)).json();
+    expect(limited.activityVisible).toBe(false);
+    expect(limited.totals.opens).toBeNull();
+    expect(limited.games[0].lastPlayedAt).toBeNull();
+    expect(limited.games[0].bests[0].score).toBe(4);
+    await guestPage.goto(`http://localhost:3070/players/${username}`);
+    await expect(guestPage.getByText('活躍記錄未公開。', { exact: true })).toBeVisible();
+    await expect(guestPage.locator('.career-stats')).not.toContainText('開啟次數');
+    await privacy.getByLabel('生涯公開範圍', { exact: true }).selectOption('private');
+    await privacy.getByRole('button', { name: '儲存公開範圍' }).click();
+    await expect(privacy.getByRole('status')).toContainText('已儲存');
+    expect((await guestPage.request.get(`http://localhost:3070/api/v1/players/${username}/career`)).status()).toBe(404);
+    await guestPage.reload();
+    await expect(guestPage.getByRole('alert')).toContainText('未公開或不存在');
+    await expect(guestPage.locator('.career-stats')).toHaveCount(0);
+    // Leaderboards remain public even for a private career.
+    const board = await (await guestPage.request.get('http://localhost:3070/api/v1/games/signal-tap/leaderboards/classic')).json();
+    expect(board.entries.some((entry: { username: string }) => entry.username === username)).toBe(true);
+    const owner = await (await page.request.get(`/api/v1/players/${username}/career`)).json();
+    expect(owner.activityVisible).toBe(true);
+    expect(owner.totals.completedRuns).toBe(1);
+
+    const devices = page.getByRole('region', { name: '其他裝置', exact: true });
+    await expect(devices).toContainText('1 個其他有效');
+    await devices.getByLabel('驗證目前密碼').fill(password);
+    await devices.getByRole('button', { name: '登出其他裝置', exact: true }).click();
+    await expect(devices.getByRole('status')).toContainText('已登出 1');
+    expect((await device.request.get('http://localhost:3070/api/v1/me/library')).status()).toBe(401);
+    expect((await (await page.request.get('/api/v1/session')).json()).authenticated).toBe(true);
+    expect((await login()).status()).toBe(200);
+    const change = page.getByRole('region', { name: '修改密碼', exact: true });
+    await change.getByLabel('目前密碼', { exact: true }).fill(password);
+    await change.getByLabel('新密碼', { exact: true }).fill(newPassword);
+    await change.getByLabel('確認新密碼', { exact: true }).fill('different-new-password');
+    await change.getByRole('button', { name: '更新密碼', exact: true }).click();
+    await expect(change.getByRole('alert')).toContainText('不一致');
+    await change.getByLabel('確認新密碼', { exact: true }).fill(newPassword);
+    await change.getByRole('button', { name: '更新密碼', exact: true }).click();
+    await expect(page.locator('.toast')).toContainText('密碼已更新');
+    const refreshed = await (await page.request.get('/api/v1/session')).json();
+    expect(refreshed.authenticated).toBe(true);
+    expect(refreshed.csrf).not.toBe(session.csrf);
+    await expect(change.getByLabel('目前密碼', { exact: true })).toHaveValue('');
+    expect((await device.request.get('http://localhost:3070/api/v1/me/settings')).status()).toBe(401);
+    expect((await login()).status()).toBe(401);
+    expect((await device.request.post('http://localhost:3070/api/v1/login', { headers: authHeaders, data: { username, password: newPassword } })).status()).toBe(200);
+    expect((await (await device.request.get('http://localhost:3070/api/v1/me/settings')).json()).careerVisibility).toBe('private');
+    expect((await (await device.request.get(`http://localhost:3070/api/v1/players/${username}/career`)).json()).totals.completedRuns).toBe(1);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    await page.screenshot({ path: `artifacts/settings-${info.project.name}.png`, fullPage: true });
+  } finally { await another.close(); await guest.close(); }
+});
+
+test('admin operational overview reports server submissions and storage without exposing it to players', async ({ page }, info) => {
+  await page.route('**/api/v1/login', (route) => route.continue({ headers: {
+    ...route.request().headers(), 'x-forwarded-for': info.project.name === 'mobile' ? '192.0.2.122' : '192.0.2.121',
+  } }));
+  await page.goto('/admin');
+  await page.getByLabel('帳號', { exact: true }).fill('admin');
+  await page.getByLabel('密碼', { exact: true }).fill('e2e-only-password');
+  await page.getByRole('button', { name: '登入', exact: true }).click();
+  await expect(page.locator('.account-name')).toHaveText('admin');
+  const before = await (await page.request.get('/api/v1/admin/analytics?days=7')).json();
+  const session = await (await page.request.get('/api/v1/session')).json();
+  const headers = { Origin: 'http://localhost:3070', 'X-CSRF-Token': session.csrf };
+  const { game } = await (await page.request.get('/api/v1/games/signal-tap')).json();
+  const { playId } = await (await page.request.post('/api/v1/games/signal-tap/plays', { headers, data: { version: game.version, requestId: crypto.randomUUID() } })).json();
+  const { runId } = await (await page.request.post(`/api/v1/plays/${playId}/runs`, { headers, data: { requestId: crypto.randomUUID() } })).json();
+  expect((await page.request.post(`/api/v1/runs/${runId}/finish`, { headers, data: { score: -1 } })).status()).toBe(400);
+  expect((await page.request.post(`/api/v1/runs/${runId}/finish`, { headers, data: { score: 2 } })).status()).toBe(200);
+  expect((await page.request.post(`/api/v1/runs/${runId}/finish`, { headers, data: { score: 2 } })).status()).toBe(200);
+  const after = await (await page.request.get('/api/v1/admin/analytics?days=7')).json();
+  expect(after.totals.opens).toBe(before.totals.opens + 1);
+  expect(after.totals.completedRuns).toBe(before.totals.completedRuns + 1);
+  expect(after.submissions.success).toBe(before.submissions.success + 2);
+  expect(after.submissions.rejected).toBe(before.submissions.rejected + 1);
+  expect(after.storage.dataBytes).toBeGreaterThan(0);
+  expect(after.storage.gameBytes).toBeGreaterThan(0);
+  await page.getByRole('button', { name: '營運概況', exact: true }).click();
+  const analytics = page.getByRole('region', { name: '營運概況', exact: true });
+  await expect(analytics).toContainText('熱門遊戲');
+  await expect(analytics).toContainText('光點反應');
+  await expect(analytics).toContainText('成績');
+  await expect(analytics).toContainText('備份');
+  await analytics.getByLabel('統計期間').selectOption('30');
+  await expect(analytics.getByLabel('統計期間')).toHaveValue('30');
+  await expect(analytics).toContainText('UTC');
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await page.screenshot({ path: `artifacts/analytics-${info.project.name}.png`, fullPage: true });
+  await page.locator('.account-menu summary').click();
+  await page.getByRole('button', { name: '登出帳號', exact: true }).click();
+  await expect(page.locator('header').getByRole('link', { name: '登入', exact: true })).toBeVisible();
+  expect((await page.request.get('/api/v1/admin/analytics')).status()).toBe(401);
+});

@@ -2,12 +2,13 @@
   "schemaVersion": 1,
   "id": "signal-tap",
   "name": "光點反應",
-  "version": "1.0.1",
+  "version": "1.2.0",
   "description": "跟上亮起的光點，挑戰你的反應速度。把注意力交給這短短的二十秒。",
   "author": "Playroom Lab",
   "entry": "index.html",
   "cover": "cover.png",
   "tags": ["反應", "輕鬆玩"],
   "instructions": "按下開始後，在 20 秒內點擊亮起的光點。每次命中得 1 分；結束後可以再試一次。支援滑鼠與觸控。",
-  "devices": ["desktop", "mobile"]
+  "devices": ["desktop", "mobile"],
+  "leaderboard": { "id": "classic", "order": "desc", "unit": "分", "minScore": 0, "maxScore": 10000 }
 }

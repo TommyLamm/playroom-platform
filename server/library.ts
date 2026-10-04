@@ -30,6 +30,16 @@ export async function installVersion(
   },
 ) {
   const existing = store.db.select().from(games).where(eq(games.id, manifest.id)).get();
+  if (manifest.leaderboard) {
+    const board = manifest.leaderboard;
+    for (const old of store.db.select().from(versions).where(eq(versions.gameId, manifest.id)).all()) {
+      const previous = old.manifest.leaderboard;
+      if (previous?.id === board.id &&
+          (previous.order !== board.order || previous.unit !== board.unit ||
+           previous.minScore !== board.minScore || previous.maxScore !== board.maxScore))
+        throw new AppError(409, '計分規則已變更，請使用新的 leaderboard.id');
+    }
+  }
   if (existing && existing.repositoryId !== source.repositoryId)
     throw new AppError(409, '此遊戲 ID 已由另一個來源使用');
   if (source.repositoryId !== null) {

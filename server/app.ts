@@ -26,6 +26,10 @@ import type { PublicGame } from '../shared/types.js';
 import type { Config } from './config.js';
 import { AppError } from './errors.js';
 import { registrationSchema, type Session as PublicSession } from '../shared/account.js';
+import { registerCareer } from './career.js';
+import { registerPlayerLibrary } from './player-library.js';
+import { registerAccountSettings } from './account-settings.js';
+import { registerAnalytics } from './analytics.js';
 
 type Session = typeof sessions.$inferSelect;
 declare module 'fastify' {
@@ -117,6 +121,9 @@ export async function createApplication(
     if (!user) throw new AppError(401, '登入已失效，請重新登入');
     if (user.role !== 'admin') throw new AppError(403, '只有管理員可以使用管理後台');
   }
+  registerCareer(platform, store, requireUser);
+  registerPlayerLibrary(platform, store, requireUser);
+  registerAnalytics(platform, store, config, requireAdmin);
   function startSession(
     request: FastifyRequest,
     reply: import('fastify').FastifyReply,
@@ -149,6 +156,7 @@ export async function createApplication(
     });
     return { authenticated: true, username: user.username, role: user.role, csrf };
   }
+  registerAccountSettings(platform, store, requireUser, startSession);
   const gameParams = z.object({ id: gameId });
   const repoParams = z.object({ id: z.coerce.number().int().positive() });
 
@@ -246,7 +254,9 @@ export async function createApplication(
       const user = store.db.select().from(users).where(eq(users.username, username.trim())).get();
       const valid = await verifyPassword(password, user?.password || dummyPassword);
       if (!user || !valid) throw new AppError(401, '帳號或密碼不正確');
-      return startSession(request, reply, user);
+      const current = store.db.select().from(users).where(eq(users.id, user.id)).get();
+      if (!current || current.password !== user.password) throw new AppError(401, '帳號或密碼不正確');
+      return startSession(request, reply, current);
     },
   );
   platform.post('/api/v1/logout', { preHandler: requireUser }, async (request, reply) => {

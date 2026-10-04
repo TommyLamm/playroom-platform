@@ -30,7 +30,7 @@ export async function makeZip(
   const files: [string, Buffer][] = [
     ['game.json', Buffer.from(JSON.stringify(manifest))],
     ...(await Promise.all(
-      ['index.html', 'style.css', 'game.js', 'config.json', 'cover.png'].map(
+      ['index.html', 'style.css', 'game.js', 'playroom-sdk.js', 'config.json', 'cover.png'].map(
         async (name) => [name, await fs.readFile(path.join(sample, name))] as [string, Buffer],
       ),
     )),

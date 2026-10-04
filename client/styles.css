@@ -1966,3 +1966,57 @@ td:last-child {
     gap: 8px;
   }
 }
+/* Account careers and game leaderboards */
+.game-card-wrap { position: relative; min-width: 0; }
+.game-card-wrap > .game-card { display: block; height: 100%; }
+.favorite-button { gap: 7px; white-space: nowrap; }
+.favorite-button.selected { color: var(--green); background: #edf6f0; border-color: #9dbcae; }
+.favorite-button.compact { padding: 8px; min-width: 34px; min-height: 34px; }
+.favorite-button.compact span { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.game-card-wrap > .favorite-button { position: absolute; right: 13px; top: 13px; background: #fffffff2; }
+.player-library { margin-bottom: 34px; }
+.library-section { margin-bottom: 26px; }
+.library-section .section-heading { margin-bottom: 14px; }
+.library-section h2 { font-size: 19px; }
+.library-section .muted { font-size: 12px; }
+.library-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+.library-card { padding: 14px; border: 1px solid var(--line); border-radius: 8px; background: white; min-width: 0; }
+.library-game { display: flex; align-items: center; gap: 12px; }
+.library-game img { width: 64px; height: 48px; object-fit: cover; border-radius: 5px; flex-shrink: 0; }
+.library-game h3 { font-size: 14px; overflow-wrap: anywhere; }
+.library-actions { display: flex; gap: 9px; align-items: center; margin-top: 12px; }
+.library-actions > .primary { flex: 1; }
+.library-empty { padding: 18px; color: var(--muted); font-size: 13px; border: 1px dashed var(--line); border-radius: 8px; line-height: 1.8; }
+.library-login { display: flex; align-items: center; gap: 12px; margin: 0 0 26px; padding: 14px 18px; border: 1px solid var(--line); border-radius: 8px; color: var(--muted); background: white; font-size: 13px; }
+.library-login > svg { flex-shrink: 0; color: var(--green); }
+.library-login a { color: var(--green); text-decoration: underline; }
+.detail-favorite { margin: 14px 0; }
+.detail-favorite .error-banner { margin-top: 12px; }
+@media (max-width: 900px) { .library-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 480px) { .library-grid { grid-template-columns: minmax(0, 1fr); } .library-section .section-heading { gap: 6px; } }
+.career-section { margin-top: 32px; padding: 24px; border: 1px solid #e5e0da; border-radius: 18px; background: #fffdf9; scroll-margin-top: 90px; }
+.career-section h2 { margin: 0 0 12px; }
+.section-heading { display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; }
+.career-stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; margin: 24px 0; }
+.career-stats > div { display: flex; flex-direction: column; gap: 8px; padding: 20px; border: 1px solid #e5e0da; border-radius: 16px; background: #fffdf9; }
+.career-stats strong { font-size: 22px; overflow-wrap: anywhere; }
+.career-stats span, .muted { color: #77716b; font-size: 14px; }
+.career-games { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.career-game { padding: 18px; border: 1px solid #e5e0da; border-radius: 12px; overflow-wrap: anywhere; }
+.career-game h3 { margin-top: 0; }
+.career-filter { display: flex; gap: 12px; align-items: center; margin: 16px 0; }
+.career-filter select { max-width: 100%; min-width: 0; padding: 8px 12px; border: 1px solid #e5e0da; border-radius: 8px; background: white; }
+.career-table-wrap { overflow-x: auto; }
+.career-table { width: 100%; border-collapse: collapse; text-align: left; font-size: 14px; }
+.career-table th, .career-table td { padding: 14px 12px; border-bottom: 1px solid #e5e0da; white-space: nowrap; }
+.career-table th { color: #77716b; font-weight: 500; }
+.career-pagination { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 16px; margin-top: 20px; }
+.personal-rank { padding: 14px; background: #f5eaff; border-radius: 10px; }
+.record-status { display: flex; gap: 12px; align-items: center; justify-content: space-between; flex-wrap: wrap; padding: 10px 16px; background: #fffdf9; color: #625b65; font-size: 13px; }
+@media (max-width: 680px) {
+  .career-stats, .career-games { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  .career-stats > div, .career-section { padding: 14px; }
+  .career-stats strong { font-size: 18px; }
+  .career-games { grid-template-columns: minmax(0, 1fr); }
+  .career-filter { flex-wrap: wrap; }
+}

@@ -27,6 +27,15 @@ export function isSafePath(value: string): boolean {
   );
 }
 
+export const leaderboardSchema = z.object({
+  id: z.string().regex(/^[a-z][a-z0-9-]{0,47}$/),
+  order: z.enum(['desc', 'asc']).default('desc'),
+  unit: z.string().min(1).max(16).default('分'),
+  minScore: z.number().int().min(0).max(Number.MAX_SAFE_INTEGER).default(0),
+  maxScore: z.number().int().min(0).max(Number.MAX_SAFE_INTEGER).default(Number.MAX_SAFE_INTEGER),
+}).strict().refine((value) => value.minScore <= value.maxScore, 'Invalid score range');
+export type Leaderboard = z.infer<typeof leaderboardSchema>;
+
 export const manifestSchema = z
   .object({
     schemaVersion: z.literal(1),
@@ -46,6 +55,7 @@ export const manifestSchema = z
       .array(z.enum(['desktop', 'mobile']))
       .min(1)
       .max(2),
+    leaderboard: leaderboardSchema.optional(),
   })
   .strict();
 

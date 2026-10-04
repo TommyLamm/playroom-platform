@@ -1,0 +1,10 @@
+.account-settings-page { max-width: 880px; }
+.account-settings-page form { max-width: 600px; }
+.account-settings-page form > label { display: block; margin-bottom: 18px; }
+.account-settings-page input, .account-settings-page select { width: 100%; min-width: 0; }
+.account-settings-page .career-section { overflow-wrap: anywhere; }
+.account-settings-page .settings-success { color: #376855; padding: 12px 16px; border-radius: 8px; background: #edf4ee; }
+@media (max-width: 560px) {
+  .account-settings-page select { font-size: 14px; }
+  .account-settings-page form > .button { width: 100%; }
+}

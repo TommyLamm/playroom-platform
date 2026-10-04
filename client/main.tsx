@@ -59,6 +59,13 @@ import type { Session } from '../shared/account';
 import type { UpdateStatus } from '../shared/update';
 import { api, ApiError, setCsrf } from './api';
 import './styles.css';
+import { useGameBridge } from './game-bridge';
+import { SdkDiagnosticsPanel } from './sdk-diagnostics';
+import type { GameManifest } from '../shared/manifest';
+import { CareerPage, LeaderboardPanel } from './career';
+import { FavoriteButton, LibraryError, PlayerLibraryProvider, PlayerLibrarySections } from './player-library';
+import { AccountSettingsPage } from './account-settings';
+import { AdminAnalytics } from './admin-analytics';
 
 const SessionContext = createContext<{ session: Session | null; refresh: () => Promise<void> }>({
   session: null,
@@ -92,6 +99,7 @@ function App() {
     <SessionContext.Provider value={{ session, refresh }}>
       <NoticeContext.Provider value={(message, error = false) => setNotice({ message, error })}>
         <BrowserRouter>
+        <PlayerLibraryProvider session={session} key={session?.authenticated ? `${session.username}:${session.csrf}` : 'guest'}>
           <header className="site-header">
             <div className="header-inner">
               <Link className="brand" to="/" aria-label="小遊戲集合所首頁">
@@ -121,6 +129,8 @@ function App() {
             <Route path="/" element={<Lobby />} />
             <Route path="/games/:id" element={<GameDetail />} />
             <Route path="/play/:id" element={<PlayPage />} />
+            <Route path="/players/:username" element={<CareerPage session={session} />} />
+            <Route path="/settings/account" element={<AccountSettingsPage session={session} onSessionChanged={refresh} notify={(message, error = false) => setNotice({ message, error })} />} />
             <Route path="/login" element={<AuthPage key="login" />} />
             <Route path="/register" element={<AuthPage key="register" register />} />
             <Route path="/admin" element={<Admin />} />
@@ -153,6 +163,7 @@ function App() {
               </button>
             </div>
           )}
+        </PlayerLibraryProvider>
         </BrowserRouter>
       </NoticeContext.Provider>
     </SessionContext.Provider>
@@ -212,6 +223,14 @@ function AccountNav() {
             <strong>{session.username}</strong>
             <span>{session.role === 'admin' ? '管理員' : '普通玩家'}</span>
           </div>
+          <Link to={`/players/${encodeURIComponent(session.username)}`}
+            onClick={(event) => event.currentTarget.closest('details')?.removeAttribute('open')}>
+            <History size={16} />我的遊戲生涯
+          </Link>
+          <Link to="/settings/account"
+            onClick={(event) => event.currentTarget.closest('details')?.removeAttribute('open')}>
+            <Settings2 size={16} />帳號設定
+          </Link>
           {session.role === 'admin' && (
             <Link
               to="/admin"
@@ -327,6 +346,7 @@ function Lobby() {
           <span>款遊戲，隨時開玩</span>
         </div>
       </section>
+      <PlayerLibrarySections games={games} />
       <section aria-label="遊戲目錄">
         <div className="catalog-toolbar">
           <div className="filter-tabs" aria-label="遊戲分類">
@@ -398,7 +418,8 @@ function Lobby() {
         ) : (
           <div className="game-grid">
             {filtered.map((game, i) => (
-              <Link className="game-card" to={`/games/${game.id}`} key={game.id}>
+              <article className="game-card-wrap" key={game.id}>
+              <Link className="game-card" to={`/games/${game.id}`}>
                 <div className="game-art">
                   <img
                     src={game.coverUrl}
@@ -434,6 +455,8 @@ function Lobby() {
                   </div>
                 </div>
               </Link>
+              <FavoriteButton game={game} compact />
+              </article>
             ))}
           </div>
         )}
@@ -510,6 +533,7 @@ function GameDetail() {
                 開始遊戲
                 <ArrowRight size={18} />
               </Link>
+              <div className="detail-favorite"><FavoriteButton game={game} /><LibraryError /></div>
               <span className="version-note">
                 v{game.version} · {date(game.publishedAt)} 上架
               </span>
@@ -519,6 +543,7 @@ function GameDetail() {
             <h2>玩法與操作</h2>
             <p>{game.instructions}</p>
           </section>
+          <LeaderboardPanel gameId={game.id} activeBoardId={game.leaderboard?.id} />
         </>
       )}
     </main>
@@ -530,11 +555,15 @@ function GameFrame({
   title,
   onBack,
   expiresAt,
+  game,
+  previewManifest,
 }: {
   url: string;
   title: string;
   onBack?: () => void;
   expiresAt?: number;
+  game?: PublicGame;
+  previewManifest?: GameManifest;
 }) {
   const [restart, setRestart] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -544,6 +573,9 @@ function GameFrame({
   const loadTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const container = useRef<HTMLDivElement>(null);
   const notice = useNotice();
+  const frame = useRef<HTMLIFrameElement>(null);
+  const { session } = useContext(SessionContext);
+  const bridge = useGameBridge(frame, url, game, session, restart, previewManifest);
   useEffect(() => {
     const controller = new AbortController();
     setLoading(true);
@@ -627,7 +659,8 @@ function GameFrame({
           <>
             {verified && (
               <iframe
-                key={`${url}-${restart}`}
+                key={`${url}-${restart}-${bridge.identity}`}
+                ref={frame}
                 title={title}
                 src={url}
                 sandbox="allow-scripts allow-same-origin allow-pointer-lock"
@@ -637,6 +670,7 @@ function GameFrame({
                 onLoad={() => {
                   clearTimeout(loadTimer.current);
                   setLoading(false);
+                  bridge.onLoad();
                 }}
                 onError={() => {
                   clearTimeout(loadTimer.current);
@@ -658,6 +692,11 @@ function GameFrame({
           </>
         )}
       </div>
+      <div className="record-status" role="status">
+        <span>{bridge.status}</span>
+        {bridge.retryable && <button className="button secondary small" onClick={bridge.retry}>重試保存</button>}
+      </div>
+      {previewManifest && <SdkDiagnosticsPanel manifest={previewManifest} diagnostics={bridge.diagnostics} loading={loading} error={error} expired={expired} clear={bridge.clearDiagnostics} />}
     </div>
   );
 }
@@ -683,10 +722,12 @@ function PlayPage() {
             url={game.playUrl}
             title={game.name}
             onBack={() => navigate(`/games/${game.id}`)}
+            game={game}
           />
           <div className="play-caption">
             <p>{game.instructions}</p>
             <span>v{game.version}</span>
+            <Link to={`/games/${game.id}#leaderboard`}>查看排行榜</Link>
           </div>
         </>
       )}
@@ -917,7 +958,7 @@ function Admin() {
   const [data, setData] = useState<Overview | null>(null);
   const [error, setError] = useState('');
   const [importing, setImporting] = useState(false);
-  const [preview, setPreview] = useState<{ url: string; title: string; expiresAt: number } | null>(
+  const [preview, setPreview] = useState<{ url: string; title: string; expiresAt: number; previewManifest: GameManifest } | null>(
     null,
   );
   const [confirm, setConfirm] = useState<{
@@ -952,13 +993,16 @@ function Admin() {
   }
   async function showPreview(game: AdminGame, version: string) {
     try {
+      const manifest = game.versions.find((v) => v.version === version)?.manifest;
+      if (!manifest) throw new Error('找不到預覽版本');
       const result = await api<{ url: string; expiresAt: number }>(
         `/admin/games/${game.id}/preview`,
         { version },
       );
       setPreview({
         ...result,
-        title: `${game.versions.find((v) => v.version === version)?.manifest.name} · v${version}`,
+        title: `${manifest.name} · v${version}`,
+        previewManifest: manifest,
       });
     } catch (e) {
       notice((e as Error).message, true);
@@ -1049,6 +1093,10 @@ function Admin() {
               <span className="status-dot" />
             )}
           </button>
+          <button className={tab === 'analytics' ? 'active' : ''} onClick={() => setTab('analytics')}>
+            <Grid2X2 size={16} />
+            營運概況
+          </button>
           <button className={tab === 'updates' ? 'active' : ''} onClick={() => setTab('updates')}>
             <RefreshCw size={16} />
             平台更新
@@ -1059,7 +1107,9 @@ function Admin() {
         </button>
       </div>
       {error && <ErrorMessage message={error} retry={() => void load()} />}
-      {tab === 'updates' ? (
+      {tab === 'analytics' ? (
+        <AdminAnalytics />
+      ) : tab === 'updates' ? (
         <PlatformUpdates />
       ) : !data ? (
         <Spinner />

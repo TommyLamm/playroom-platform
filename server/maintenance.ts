@@ -9,6 +9,7 @@ import { fileHash, installVersion, publish } from './library.js';
 import { manifestSchema, isSafePath } from '../shared/manifest.js';
 import type { Config } from './config.js';
 import { AppError } from './errors.js';
+import { recordBackupStart, recordBackupEnd, normalizeBackupSnapshot } from './operational-state.js';
 
 async function filesIn(root: string, prefix = ''): Promise<string[]> {
   const result: string[] = [];
@@ -25,58 +26,65 @@ async function filesIn(root: string, prefix = ''): Promise<string[]> {
 export async function backup(dataDir: string, destination: string) {
   dataDir = path.resolve(dataDir);
   destination = path.resolve(destination);
-  if (destination === dataDir || destination.startsWith(dataDir + path.sep))
-    throw new Error('Backup destination must be outside DATA_DIR');
-  if (fs.existsSync(destination)) throw new Error('Backup destination must not exist');
   if (!fs.existsSync(path.join(dataDir, 'platform.sqlite')))
     throw new Error('No platform database found');
-  await fsp.mkdir(destination, { recursive: true });
-  const source = new Database(path.join(dataDir, 'platform.sqlite'), { readonly: true });
+  const source = new Database(path.join(dataDir, 'platform.sqlite'));
+  source.pragma('busy_timeout = 5000');
+  let startedAt: string | undefined;
+  // Telemetry must not prevent older-schema backups or a valid backup operation.
+  try { startedAt = recordBackupStart(source); } catch { /* optional operational state */ }
   try {
+    if (destination === dataDir || destination.startsWith(dataDir + path.sep))
+      throw new Error('Backup destination must be outside DATA_DIR');
+    if (fs.existsSync(destination)) throw new Error('Backup destination must not exist');
+    await fsp.mkdir(destination, { recursive: true });
     await source.backup(path.join(destination, 'platform.sqlite'));
-  } finally {
-    source.close();
-  }
-  const snapshot = new Database(path.join(destination, 'platform.sqlite'));
-  try {
-    snapshot.exec('DELETE FROM sessions; DELETE FROM previews;');
-    snapshot
-      .prepare(
-        "UPDATE import_jobs SET status='failed', phase='interrupted', error='由備份還原，請重新匯入' WHERE status IN ('queued','running')",
-      )
-      .run();
-    const records = snapshot.prepare('SELECT game_id, version, manifest FROM versions').all() as {
-      game_id: string;
-      version: string;
-      manifest: string;
-    }[];
-    for (const record of records) {
-      const manifest = manifestSchema.parse(JSON.parse(record.manifest));
-      if (manifest.id !== record.game_id || manifest.version !== record.version)
-        throw new Error('Version metadata is inconsistent');
-      const relative = path.join('games', manifest.id, manifest.version);
-      await fsp.cp(path.join(dataDir, relative), path.join(destination, relative), {
-        recursive: true,
-        errorOnExist: true,
-        force: false,
-        dereference: false,
-      });
+    const snapshot = new Database(path.join(destination, 'platform.sqlite'));
+    try {
+      snapshot.exec('DELETE FROM sessions; DELETE FROM previews;');
+      normalizeBackupSnapshot(snapshot);
+      snapshot
+        .prepare(
+          "UPDATE import_jobs SET status='failed', phase='interrupted', error='由備份還原，請重新匯入' WHERE status IN ('queued','running')",
+        )
+        .run();
+      const records = snapshot.prepare('SELECT game_id, version, manifest FROM versions').all() as {
+        game_id: string;
+        version: string;
+        manifest: string;
+      }[];
+      for (const record of records) {
+        const manifest = manifestSchema.parse(JSON.parse(record.manifest));
+        if (manifest.id !== record.game_id || manifest.version !== record.version)
+          throw new Error('Version metadata is inconsistent');
+        const relative = path.join('games', manifest.id, manifest.version);
+        await fsp.cp(path.join(dataDir, relative), path.join(destination, relative), {
+          recursive: true,
+          errorOnExist: true,
+          force: false,
+          dereference: false,
+        });
+      }
+      snapshot.pragma('wal_checkpoint(TRUNCATE)');
+      snapshot.pragma('journal_mode=DELETE');
+    } finally {
+      snapshot.close();
     }
-    snapshot.pragma('wal_checkpoint(TRUNCATE)');
-    snapshot.pragma('journal_mode=DELETE');
-  } finally {
-    snapshot.close();
-  }
-  for (const suffix of ['-wal', '-shm'])
-    await fsp.rm(path.join(destination, 'platform.sqlite' + suffix), { force: true });
-  const entries = await filesIn(destination);
-  const files = [];
-  for (const name of entries)
-    files.push({ path: name, sha256: await fileHash(path.join(destination, name)) });
-  await fsp.writeFile(
-    path.join(destination, 'backup.json'),
-    JSON.stringify({ format: 1, createdAt: new Date().toISOString(), files }, null, 2),
-  );
+    for (const suffix of ['-wal', '-shm'])
+      await fsp.rm(path.join(destination, 'platform.sqlite' + suffix), { force: true });
+    const entries = await filesIn(destination);
+    const files = [];
+    for (const name of entries)
+      files.push({ path: name, sha256: await fileHash(path.join(destination, name)) });
+    await fsp.writeFile(
+      path.join(destination, 'backup.json'),
+      JSON.stringify({ format: 1, createdAt: new Date().toISOString(), files }, null, 2),
+    );
+    if (startedAt) { try { recordBackupEnd(source, startedAt, true); } catch { /* optional telemetry */ } }
+  } catch (error) {
+    if (startedAt) { try { recordBackupEnd(source, startedAt, false); } catch { /* preserve original error */ } }
+    throw error;
+  } finally { source.close(); }
 }
 
 const backupSchema = z.object({
@@ -107,7 +115,7 @@ export async function restore(source: string, dataDir: string) {
   try {
     if (check.pragma('integrity_check', { simple: true }) !== 'ok')
       throw new Error('Backup database integrity check failed');
-    if (![1, 2].includes(check.pragma('user_version', { simple: true }) as number))
+    if (![1, 2, 3, 4, 5].includes(check.pragma('user_version', { simple: true }) as number))
       throw new Error('Unsupported database version');
     for (const row of check.prepare('SELECT manifest FROM versions').all() as {
       manifest: string;
