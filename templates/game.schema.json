@@ -1,0 +1,83 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "properties": {
+    "schemaVersion": {
+      "type": "number",
+      "const": 1
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]{1,47}$"
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 80
+    },
+    "version": {
+      "type": "string",
+      "maxLength": 64,
+      "pattern": "^\\d+\\.\\d+\\.\\d+(?:-[a-zA-Z0-9]+(?:[.-][a-zA-Z0-9]+)*)?$"
+    },
+    "description": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 2000
+    },
+    "author": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 100
+    },
+    "entry": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 240
+    },
+    "cover": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 240
+    },
+    "tags": {
+      "maxItems": 8,
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 24
+      }
+    },
+    "instructions": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 2000
+    },
+    "devices": {
+      "minItems": 1,
+      "maxItems": 2,
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": ["desktop", "mobile"]
+      }
+    }
+  },
+  "required": [
+    "schemaVersion",
+    "id",
+    "name",
+    "version",
+    "description",
+    "author",
+    "entry",
+    "cover",
+    "tags",
+    "instructions",
+    "devices"
+  ],
+  "additionalProperties": false,
+  "title": "PLAYROOM Game Manifest v1",
+  "description": "Manifest structure. Run game:validate for archive, portable path and referenced-file checks."
+}

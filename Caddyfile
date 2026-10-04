@@ -1,0 +1,13 @@
+{
+  email {$ACME_EMAIL}
+}
+
+{$PLATFORM_HOST} {
+  encode zstd gzip
+  reverse_proxy app:3000
+}
+
+{$GAMES_HOST} {
+  encode zstd gzip
+  reverse_proxy app:3001
+}

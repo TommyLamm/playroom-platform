@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>光點反應</title>
+    <link rel="stylesheet" href="./style.css" />
+  </head>
+  <body>
+    <main class="game">
+      <header>
+        <span class="wordmark">PLAYROOM LAB / 01</span>
+        <div><span>BEST</span><strong id="best">00</strong></div>
+      </header>
+      <section class="heading">
+        <p id="subtitle">FIND YOUR RHYTHM</p>
+        <h1 id="title">光點反應</h1>
+        <p id="tagline">跟著光，找到你的節奏。</p>
+      </section>
+      <div class="scorebar">
+        <div><span>SCORE</span><strong id="score">00</strong></div>
+        <span class="status" id="status">READY WHEN YOU ARE</span>
+        <div>
+          <span>TIME</span><strong id="time">20<span>s</span></strong>
+        </div>
+      </div>
+      <section class="board" id="board" aria-label="遊戲區"></section>
+      <div class="bottom">
+        <button id="start">開始挑戰 <span>↗</span></button>
+        <p id="result" role="status">20 秒，看看你能抓住幾道光。</p>
+      </div>
+    </main>
+    <script type="module" src="./game.js"></script>
+  </body>
+</html>

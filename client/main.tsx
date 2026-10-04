@@ -1,0 +1,1675 @@
+import React, {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+  type FormEvent,
+  type ReactNode,
+} from 'react';
+import { createRoot } from 'react-dom/client';
+import {
+  BrowserRouter,
+  Link,
+  Navigate,
+  NavLink,
+  Route,
+  Routes,
+  useNavigate,
+  useParams,
+} from 'react-router-dom';
+import {
+  ArrowLeft,
+  ArrowRight,
+  Check,
+  ChevronDown,
+  CircleAlert,
+  Clock3,
+  Download,
+  ExternalLink,
+  Gamepad2,
+  Github,
+  Grid2X2,
+  History,
+  LayoutDashboard,
+  LoaderCircle,
+  LogOut,
+  Maximize,
+  Monitor,
+  Pause,
+  Play,
+  Plus,
+  RefreshCw,
+  Search,
+  Settings2,
+  ShieldCheck,
+  Smartphone,
+  Sparkles,
+  Upload,
+  UserRound,
+  UserPlus,
+  LogIn,
+  Eye,
+  EyeOff,
+  X,
+} from 'lucide-react';
+import type { AdminGame, ImportJob, PublicGame, Release, Repository } from '../shared/types';
+import type { Session } from '../shared/account';
+import type { UpdateStatus } from '../shared/update';
+import { api, ApiError, setCsrf } from './api';
+import './styles.css';
+
+const SessionContext = createContext<{ session: Session | null; refresh: () => Promise<void> }>({
+  session: null,
+  refresh: async () => {},
+});
+const NoticeContext = createContext<(message: string, error?: boolean) => void>(() => {});
+function useNotice() {
+  return useContext(NoticeContext);
+}
+const date = (value: string) =>
+  new Intl.DateTimeFormat('zh-HK', { dateStyle: 'medium' }).format(new Date(value));
+
+function App() {
+  const [session, setSession] = useState<Session | null>(null);
+  const [notice, setNotice] = useState<{ message: string; error: boolean } | null>(null);
+  const refresh = useCallback(async () => {
+    const data = await api<Session>('/session');
+    setCsrf(data.authenticated ? data.csrf : '');
+    setSession(data);
+  }, []);
+  useEffect(() => {
+    void refresh().catch(() => setSession({ authenticated: false }));
+  }, [refresh]);
+  useEffect(() => {
+    if (notice) {
+      const timer = setTimeout(() => setNotice(null), 6000);
+      return () => clearTimeout(timer);
+    }
+  }, [notice]);
+  return (
+    <SessionContext.Provider value={{ session, refresh }}>
+      <NoticeContext.Provider value={(message, error = false) => setNotice({ message, error })}>
+        <BrowserRouter>
+          <header className="site-header">
+            <div className="header-inner">
+              <Link className="brand" to="/" aria-label="小遊戲集合所首頁">
+                <span className="brand-icon">
+                  <Gamepad2 size={25} />
+                </span>
+                <span>
+                  PLAYROOM<small>小遊戲集合所</small>
+                </span>
+              </Link>
+              <nav aria-label="主要導覽">
+                <NavLink to="/" end>
+                  <Grid2X2 size={16} />
+                  <span>遊戲大廳</span>
+                </NavLink>
+                {session?.authenticated && session.role === 'admin' && (
+                  <NavLink to="/admin">
+                    <Settings2 size={16} />
+                    <span>管理後台</span>
+                  </NavLink>
+                )}
+              </nav>
+              <AccountNav />
+            </div>
+          </header>
+          <Routes>
+            <Route path="/" element={<Lobby />} />
+            <Route path="/games/:id" element={<GameDetail />} />
+            <Route path="/play/:id" element={<PlayPage />} />
+            <Route path="/login" element={<AuthPage key="login" />} />
+            <Route path="/register" element={<AuthPage key="register" register />} />
+            <Route path="/admin" element={<Admin />} />
+            <Route
+              path="*"
+              element={
+                <Empty title="找不到這個頁面" text="回到大廳，挑一款遊戲吧。">
+                  <Link className="button primary" to="/">
+                    返回大廳
+                  </Link>
+                </Empty>
+              }
+            />
+          </Routes>
+          <footer className="site-footer">
+            <span>
+              PLAYROOM <span className="footer-divider">/</span> 留一點時間給好玩的事
+            </span>
+            <span>Made for a little break.</span>
+          </footer>
+          {notice && (
+            <div
+              className={`toast ${notice.error ? 'error' : ''}`}
+              role={notice.error ? 'alert' : 'status'}
+            >
+              {notice.error ? <CircleAlert size={18} /> : <Check size={18} />}
+              <span>{notice.message}</span>
+              <button className="icon-button" title="關閉通知" onClick={() => setNotice(null)}>
+                <X size={16} />
+              </button>
+            </div>
+          )}
+        </BrowserRouter>
+      </NoticeContext.Provider>
+    </SessionContext.Provider>
+  );
+}
+
+function AccountNav() {
+  const { session, refresh } = useContext(SessionContext);
+  const notice = useNotice();
+  const navigate = useNavigate();
+  const [busy, setBusy] = useState(false);
+  const menu = useRef<HTMLDetailsElement>(null);
+  useEffect(() => {
+    function closeOutside(event: PointerEvent) {
+      if (menu.current?.open && !menu.current.contains(event.target as Node))
+        menu.current.open = false;
+    }
+    function closeOnEscape(event: KeyboardEvent) {
+      if (event.key === 'Escape' && menu.current?.open) {
+        menu.current.open = false;
+        menu.current.querySelector('summary')?.focus();
+      }
+    }
+    document.addEventListener('pointerdown', closeOutside);
+    document.addEventListener('keydown', closeOnEscape);
+    return () => {
+      document.removeEventListener('pointerdown', closeOutside);
+      document.removeEventListener('keydown', closeOnEscape);
+    };
+  }, []);
+  if (!session) return <div className="account-nav account-placeholder" aria-busy="true" />;
+  if (!session.authenticated)
+    return (
+      <div className="account-nav">
+        <Link className="account-login" to="/login">
+          <LogIn size={16} />
+          <span>登入</span>
+        </Link>
+        <Link className="button primary small" to="/register">
+          <UserPlus size={16} />
+          <span>註冊</span>
+        </Link>
+      </div>
+    );
+  return (
+    <div className="account-nav">
+      <details className="account-menu" ref={menu}>
+        <summary title={session.username}>
+          <span className="account-avatar">
+            <UserRound size={17} />
+          </span>
+          <span className="account-name">{session.username}</span>
+          <ChevronDown size={14} />
+        </summary>
+        <div className="account-dropdown">
+          <div className="account-info">
+            <strong>{session.username}</strong>
+            <span>{session.role === 'admin' ? '管理員' : '普通玩家'}</span>
+          </div>
+          {session.role === 'admin' && (
+            <Link
+              to="/admin"
+              onClick={(event) => event.currentTarget.closest('details')?.removeAttribute('open')}
+            >
+              <LayoutDashboard size={16} />
+              管理後台
+            </Link>
+          )}
+          <button
+            disabled={busy}
+            onClick={async (event) => {
+              event.currentTarget.closest('details')?.removeAttribute('open');
+              setBusy(true);
+              try {
+                try {
+                  await api('/logout', {});
+                } catch (error) {
+                  if (!(error instanceof ApiError && error.status === 401)) throw error;
+                }
+                await refresh();
+                navigate('/');
+              } catch (error) {
+                notice((error as Error).message, true);
+              } finally {
+                setBusy(false);
+              }
+            }}
+          >
+            <LogOut size={16} />
+            登出帳號
+          </button>
+        </div>
+      </details>
+    </div>
+  );
+}
+
+function Spinner({ text = '載入中' }: { text?: string }) {
+  return (
+    <div className="loading" role="status">
+      <LoaderCircle className="spin" size={22} />
+      <span>{text}</span>
+    </div>
+  );
+}
+function Empty({ title, text, children }: { title: string; text: string; children?: ReactNode }) {
+  return (
+    <div className="empty-state">
+      <Gamepad2 size={40} />
+      <h2>{title}</h2>
+      <p>{text}</p>
+      {children}
+    </div>
+  );
+}
+function ErrorMessage({ message, retry }: { message: string; retry?: () => void }) {
+  return (
+    <div className="error-banner" role="alert">
+      <CircleAlert size={19} />
+      <span>{message}</span>
+      {retry && (
+        <button className="button small" onClick={retry}>
+          <RefreshCw size={14} />
+          重試
+        </button>
+      )}
+    </div>
+  );
+}
+
+function Lobby() {
+  const { session } = useContext(SessionContext);
+  const [games, setGames] = useState<PublicGame[] | null>(null);
+  const [error, setError] = useState('');
+  const [search, setSearch] = useState('');
+  const [tag, setTag] = useState('全部遊戲');
+  const [sort, setSort] = useState('recent');
+  const load = useCallback(() => {
+    setError('');
+    void api<{ games: PublicGame[] }>('/games')
+      .then((d) => setGames(d.games))
+      .catch((e) => setError(e.message));
+  }, []);
+  useEffect(load, [load]);
+  const tags = [...new Set(games?.flatMap((g) => g.tags))];
+  const filtered = (games || [])
+    .filter(
+      (g) =>
+        (tag === '全部遊戲' || g.tags.includes(tag)) &&
+        `${g.name} ${g.author} ${g.description} ${g.tags.join(' ')}`
+          .toLowerCase()
+          .includes(search.toLowerCase().trim()),
+    )
+    .sort((a, b) =>
+      sort === 'name'
+        ? a.name.localeCompare(b.name, 'zh-Hant')
+        : b.publishedAt.localeCompare(a.publishedAt),
+    );
+  return (
+    <main className="page lobby">
+      <section className="page-intro">
+        <div>
+          <div className="eyebrow">
+            <span className="tiny-square" /> THE LITTLE GAME COLLECTION
+          </div>
+          <h1>今天，玩點什麼？</h1>
+          <p>一局小遊戲，一段剛剛好的休息。</p>
+        </div>
+        <div className="collection-count">
+          <Gamepad2 size={22} />
+          <strong>{String(games?.length || 0).padStart(2, '0')}</strong>
+          <span>款遊戲，隨時開玩</span>
+        </div>
+      </section>
+      <section aria-label="遊戲目錄">
+        <div className="catalog-toolbar">
+          <div className="filter-tabs" aria-label="遊戲分類">
+            {['全部遊戲', ...tags].map((t) => (
+              <button
+                key={t}
+                className={tag === t ? 'active' : ''}
+                onClick={() => setTag(t)}
+                aria-pressed={tag === t}
+              >
+                {t === '全部遊戲' && <Grid2X2 size={15} />} {t}
+              </button>
+            ))}
+          </div>
+          <label className="search-field">
+            <Search size={17} />
+            <input
+              aria-label="搜尋遊戲"
+              placeholder="找一款遊戲…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+            {search && (
+              <button className="icon-button" title="清除搜尋" onClick={() => setSearch('')}>
+                <X size={14} />
+              </button>
+            )}
+          </label>
+        </div>
+        <div className="catalog-meta">
+          <span>
+            {search || tag !== '全部遊戲' ? `找到 ${filtered.length} 款遊戲` : '所有遊戲'}
+            <span className="count-pill">{filtered.length}</span>
+          </span>
+          <label className="sort-field">
+            <span className="sr-only">排序方式</span>
+            <select value={sort} onChange={(e) => setSort(e.target.value)}>
+              <option value="recent">最近上架</option>
+              <option value="name">依名稱排序</option>
+            </select>
+            <ChevronDown size={14} />
+          </label>
+        </div>
+        {error ? (
+          <ErrorMessage message={error} retry={load} />
+        ) : !games ? (
+          <Spinner />
+        ) : !games.length ? (
+          <Empty title="第一款遊戲，等你上架" text="遊戲集合即將開始。">
+            {session?.authenticated && session.role === 'admin' && (
+              <Link className="button primary" to="/admin">
+                <Plus size={17} />
+                前往管理後台
+              </Link>
+            )}
+          </Empty>
+        ) : !filtered.length ? (
+          <Empty title="還沒有找到這款遊戲" text="換個關鍵字，或看看其他分類。">
+            <button
+              className="button"
+              onClick={() => {
+                setSearch('');
+                setTag('全部遊戲');
+              }}
+            >
+              顯示所有遊戲
+            </button>
+          </Empty>
+        ) : (
+          <div className="game-grid">
+            {filtered.map((game, i) => (
+              <Link className="game-card" to={`/games/${game.id}`} key={game.id}>
+                <div className="game-art">
+                  <img
+                    src={game.coverUrl}
+                    alt={`${game.name}遊戲畫面`}
+                    loading={i < 3 ? 'eager' : 'lazy'}
+                  />
+                  <span className="art-play">
+                    <Play size={22} fill="currentColor" />
+                  </span>
+                  <span className="game-index">{String(i + 1).padStart(2, '0')}</span>
+                </div>
+                <div className="game-card-body">
+                  <div className="card-tags">
+                    {game.tags.slice(0, 2).map((t) => (
+                      <span key={t}>{t}</span>
+                    ))}
+                  </div>
+                  <h2>
+                    {game.name}
+                    <ArrowRight size={19} />
+                  </h2>
+                  <p>{game.description}</p>
+                  <div className="card-bottom">
+                    <span>by {game.author}</span>
+                    <span className="device-icons">
+                      {game.devices.includes('desktop') && (
+                        <Monitor size={15} aria-label="支援電腦" />
+                      )}
+                      {game.devices.includes('mobile') && (
+                        <Smartphone size={15} aria-label="支援手機" />
+                      )}
+                    </span>
+                  </div>
+                </div>
+              </Link>
+            ))}
+          </div>
+        )}
+      </section>
+      <div className="collection-end">
+        <span />
+        <Sparkles size={16} />
+        <span />
+        <p>好玩的事，慢慢收集。</p>
+      </div>
+    </main>
+  );
+}
+
+function useGame() {
+  const { id } = useParams();
+  const [game, setGame] = useState<PublicGame | null>(null);
+  const [error, setError] = useState('');
+  useEffect(() => {
+    let active = true;
+    setGame(null);
+    setError('');
+    void api<{ game: PublicGame }>(`/games/${id}`)
+      .then((d) => {
+        if (active) setGame(d.game);
+      })
+      .catch((e) => {
+        if (active) setError(e.message);
+      });
+    return () => {
+      active = false;
+    };
+  }, [id]);
+  return { game, error };
+}
+
+function GameDetail() {
+  const { game, error } = useGame();
+  return (
+    <main className="page detail">
+      <Link className="back-link" to="/">
+        <ArrowLeft size={16} />
+        返回遊戲大廳
+      </Link>
+      {error ? (
+        <ErrorMessage message={error} />
+      ) : !game ? (
+        <Spinner />
+      ) : (
+        <>
+          <div className="detail-grid">
+            <div className="detail-image">
+              <img src={game.coverUrl} alt={`${game.name}遊戲畫面`} />
+            </div>
+            <div className="detail-info">
+              <div className="card-tags">
+                {game.tags.map((t) => (
+                  <span key={t}>{t}</span>
+                ))}
+              </div>
+              <h1>{game.name}</h1>
+              <p className="detail-author">by {game.author}</p>
+              <p className="description">{game.description}</p>
+              <div className="supported-devices">
+                {game.devices.map((d) => (
+                  <span key={d}>
+                    {d === 'desktop' ? <Monitor size={16} /> : <Smartphone size={16} />}{' '}
+                    {d === 'desktop' ? '電腦' : '手機'}
+                  </span>
+                ))}
+              </div>
+              <Link className="button primary play-button" to={`/play/${game.id}`}>
+                <Play size={18} fill="currentColor" />
+                開始遊戲
+                <ArrowRight size={18} />
+              </Link>
+              <span className="version-note">
+                v{game.version} · {date(game.publishedAt)} 上架
+              </span>
+            </div>
+          </div>
+          <section className="instructions">
+            <h2>玩法與操作</h2>
+            <p>{game.instructions}</p>
+          </section>
+        </>
+      )}
+    </main>
+  );
+}
+
+function GameFrame({
+  url,
+  title,
+  onBack,
+  expiresAt,
+}: {
+  url: string;
+  title: string;
+  onBack?: () => void;
+  expiresAt?: number;
+}) {
+  const [restart, setRestart] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [expired, setExpired] = useState(false);
+  const [verified, setVerified] = useState(false);
+  const loadTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const container = useRef<HTMLDivElement>(null);
+  const notice = useNotice();
+  useEffect(() => {
+    const controller = new AbortController();
+    setLoading(true);
+    setError('');
+    setVerified(false);
+    // iframe onload fires even for HTTP errors, so verify the entry before mounting it.
+    loadTimer.current = setTimeout(() => {
+      controller.abort();
+      setLoading(false);
+      setError('載入時間較長，請檢查連線後重試');
+    }, 20000);
+    void fetch(url, { method: 'HEAD', credentials: 'omit', signal: controller.signal })
+      .then((response) => {
+        if (!response.ok)
+          throw new Error(
+            response.status === 403 ? '預覽連結已失效，請重新預覽' : '遊戲目前無法載入，可能已下架',
+          );
+        if (!controller.signal.aborted) setVerified(true);
+      })
+      .catch((e) => {
+        if (!controller.signal.aborted) {
+          clearTimeout(loadTimer.current);
+          setLoading(false);
+          setError(
+            e.message === 'Failed to fetch' ? '無法連線到遊戲，請檢查網路後重試' : e.message,
+          );
+        }
+      });
+    return () => {
+      controller.abort();
+      clearTimeout(loadTimer.current);
+    };
+  }, [url, restart]);
+  useEffect(() => {
+    if (!expiresAt) return;
+    const timer = setTimeout(() => setExpired(true), Math.max(0, expiresAt - Date.now()));
+    return () => clearTimeout(timer);
+  }, [expiresAt]);
+  async function fullscreen() {
+    try {
+      if (!container.current?.requestFullscreen) throw new Error();
+      await container.current.requestFullscreen();
+    } catch {
+      notice('這個瀏覽器目前不支援全螢幕模式', true);
+    }
+  }
+  return (
+    <div className="game-shell" ref={container}>
+      <div className="player-toolbar">
+        <div>
+          {onBack && (
+            <button className="icon-button" title="返回" onClick={onBack}>
+              <ArrowLeft size={19} />
+            </button>
+          )}
+          <Gamepad2 size={19} />
+          <strong>{title}</strong>
+          {expiresAt && <span className="badge amber">預覽</span>}
+        </div>
+        <div>
+          <button
+            className="icon-button"
+            title="重新開始"
+            onClick={() => {
+              setError('');
+              setLoading(true);
+              setRestart((v) => v + 1);
+            }}
+          >
+            <RefreshCw size={18} />
+          </button>
+          <button className="icon-button" title="全螢幕" onClick={fullscreen}>
+            <Maximize size={19} />
+          </button>
+        </div>
+      </div>
+      <div className="game-viewport">
+        {expired ? (
+          <Empty title="預覽連結已過期" text="請關閉預覽，重新取得預覽連結。" />
+        ) : (
+          <>
+            {verified && (
+              <iframe
+                key={`${url}-${restart}`}
+                title={title}
+                src={url}
+                sandbox="allow-scripts allow-same-origin allow-pointer-lock"
+                allow="fullscreen; autoplay; gamepad"
+                allowFullScreen
+                referrerPolicy="no-referrer"
+                onLoad={() => {
+                  clearTimeout(loadTimer.current);
+                  setLoading(false);
+                }}
+                onError={() => {
+                  clearTimeout(loadTimer.current);
+                  setLoading(false);
+                  setError('遊戲載入失敗，請重試');
+                }}
+              />
+            )}
+            {loading && (
+              <div className="frame-overlay">
+                <Spinner text="遊戲載入中" />
+              </div>
+            )}
+            {error && (
+              <div className="frame-error">
+                <ErrorMessage message={error} retry={() => setRestart((v) => v + 1)} />
+              </div>
+            )}
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function PlayPage() {
+  const { game, error } = useGame();
+  const navigate = useNavigate();
+  return (
+    <main className="page play-page">
+      {error ? (
+        <>
+          <Link className="back-link" to="/">
+            <ArrowLeft size={16} />
+            返回大廳
+          </Link>
+          <ErrorMessage message={error} />
+        </>
+      ) : !game ? (
+        <Spinner />
+      ) : (
+        <>
+          <GameFrame
+            url={game.playUrl}
+            title={game.name}
+            onBack={() => navigate(`/games/${game.id}`)}
+          />
+          <div className="play-caption">
+            <p>{game.instructions}</p>
+            <span>v{game.version}</span>
+          </div>
+        </>
+      )}
+    </main>
+  );
+}
+
+function Dialog({
+  title,
+  children,
+  onClose,
+  wide = false,
+}: {
+  title: string;
+  children: ReactNode;
+  onClose: () => void;
+  wide?: boolean;
+}) {
+  const ref = useRef<HTMLDialogElement>(null);
+  useEffect(() => {
+    ref.current?.showModal();
+    const dialog = ref.current;
+    return () => dialog?.close();
+  }, []);
+  return (
+    <dialog
+      ref={ref}
+      className={`dialog ${wide ? 'wide' : ''}`}
+      onCancel={onClose}
+      onClick={(e) => {
+        if (e.target === ref.current) onClose();
+      }}
+      aria-label={title}
+    >
+      <div className="dialog-heading">
+        <h2>{title}</h2>
+        <button className="icon-button" title="關閉" onClick={onClose}>
+          <X size={20} />
+        </button>
+      </div>
+      {children}
+    </dialog>
+  );
+}
+
+function AuthPage({ register = false, admin = false }: { register?: boolean; admin?: boolean }) {
+  const { session, refresh } = useContext(SessionContext);
+  const navigate = useNavigate();
+  const notice = useNotice();
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  async function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setBusy(true);
+    setError('');
+    const form = new FormData(event.currentTarget);
+    const password = String(form.get('password'));
+    if (register && password !== form.get('confirmation')) {
+      setError('兩次輸入的密碼不一致');
+      setBusy(false);
+      return;
+    }
+    try {
+      const result = await api<Session>(register ? '/register' : '/login', {
+        username: form.get('username'),
+        password,
+      });
+      await refresh();
+      notice(register ? '帳號已建立，歡迎加入！' : '登入成功');
+      navigate(admin && result.authenticated && result.role === 'admin' ? '/admin' : '/', {
+        replace: true,
+      });
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+  if (session?.authenticated)
+    return <Navigate to={admin && session.role === 'admin' ? '/admin' : '/'} replace />;
+  if (!session)
+    return (
+      <main className="page">
+        <Spinner />
+      </main>
+    );
+  return (
+    <main className="page login-page">
+      <section className="auth-aside" aria-label="遊戲收藏">
+        <div className="auth-aside-heading">
+          <Gamepad2 size={22} />
+          <span>PLAYROOM</span>
+        </div>
+        <h2>{register ? '一起玩，多一點好時光。' : '你的下一局，隨時開始。'}</h2>
+        <div className="auth-art-grid">
+          <div className="auth-art signal-art">
+            <span className="art-label">光點反應</span>
+            <div className="art-tiles">
+              {Array.from({ length: 12 }, (_, i) => (
+                <i key={i} className={i === 5 ? 'lit' : ''} />
+              ))}
+            </div>
+            <span className="art-caption">REACTION / 20 SEC</span>
+          </div>
+          <div className="auth-art colors-art">
+            <span className="art-label">色彩尋蹤</span>
+            <div className="art-tiles">
+              {Array.from({ length: 12 }, (_, i) => (
+                <i key={i} className={i === 7 ? 'lit' : ''} />
+              ))}
+            </div>
+            <span className="art-caption">COLOR / ONE MORE</span>
+          </div>
+        </div>
+        <p>小小一局，讓今天輕鬆一點。</p>
+      </section>
+      <div className="login-form">
+        <span className="login-symbol">
+          {register ? (
+            <UserPlus size={28} />
+          ) : admin ? (
+            <ShieldCheck size={28} />
+          ) : (
+            <UserRound size={28} />
+          )}
+        </span>
+        <div className="eyebrow">{admin ? 'PLAYROOM ADMIN' : 'YOUR LITTLE BREAK'}</div>
+        <h1>{register ? '建立玩家帳號' : '歡迎回來'}</h1>
+        <p>
+          {register ? '加入集合所，和大家一起玩。' : admin ? '登入管理後台' : '登入你的玩家帳號'}
+        </p>
+        <form onSubmit={submit} onChange={() => setError('')}>
+          {error && <ErrorMessage message={error} />}
+          <label>
+            <span id="account-username-label">帳號</span>
+            <input
+              name="username"
+              autoComplete="username"
+              required
+              minLength={register ? 3 : 1}
+              maxLength={register ? 32 : 100}
+              pattern={register ? '[a-zA-Z0-9_.\\-]+' : undefined}
+              aria-labelledby="account-username-label"
+              aria-describedby={register ? 'username-hint' : undefined}
+              placeholder={register ? '你的玩家名稱' : '輸入帳號'}
+            />
+            {register && (
+              <small className="field-hint" id="username-hint">
+                3–32 個英文字母、數字或 _ . -，不分大小寫
+              </small>
+            )}
+          </label>
+          <label>
+            密碼
+            <span className="password-field">
+              <input
+                name="password"
+                type={showPassword ? 'text' : 'password'}
+                autoComplete={register ? 'new-password' : 'current-password'}
+                required
+                minLength={register ? 12 : 1}
+                maxLength={256}
+                placeholder={register ? '至少 12 個字元' : '輸入密碼'}
+              />
+              <button
+                type="button"
+                className="icon-button"
+                title={showPassword ? '隱藏密碼' : '顯示密碼'}
+                aria-pressed={showPassword}
+                onClick={() => setShowPassword(!showPassword)}
+              >
+                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+              </button>
+            </span>
+          </label>
+          {register && (
+            <label>
+              確認密碼
+              <input
+                name="confirmation"
+                type={showPassword ? 'text' : 'password'}
+                autoComplete="new-password"
+                required
+                minLength={12}
+                maxLength={256}
+                placeholder="再輸入一次密碼"
+              />
+            </label>
+          )}
+          <button className="button primary" disabled={busy}>
+            {busy ? (
+              <LoaderCircle className="spin" size={18} />
+            ) : register ? (
+              <UserPlus size={18} />
+            ) : (
+              <ArrowRight size={18} />
+            )}
+            {register ? '建立帳號' : '登入'}
+          </button>
+        </form>
+        <p className="auth-switch">
+          {register ? '已經有帳號？' : '還沒有帳號？'}{' '}
+          <Link to={register ? '/login' : '/register'}>{register ? '登入' : '註冊玩家帳號'}</Link>
+        </p>
+        <Link className="back-link" to="/">
+          <ArrowLeft size={15} />
+          返回遊戲大廳
+        </Link>
+      </div>
+    </main>
+  );
+}
+
+type Overview = { games: AdminGame[]; repositories: Repository[]; jobs: ImportJob[] };
+const phaseNames: Record<string, string> = {
+  queued: '等待中',
+  resolving: '取得 Release',
+  downloading: '下載中',
+  validating: '檢查遊戲包',
+  completed: '已匯入',
+  failed: '匯入失敗',
+  interrupted: '已中斷',
+};
+
+function Admin() {
+  const { session, refresh } = useContext(SessionContext);
+  const [data, setData] = useState<Overview | null>(null);
+  const [error, setError] = useState('');
+  const [importing, setImporting] = useState(false);
+  const [preview, setPreview] = useState<{ url: string; title: string; expiresAt: number } | null>(
+    null,
+  );
+  const [confirm, setConfirm] = useState<{
+    title: string;
+    text: string;
+    action: () => Promise<void>;
+  } | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [tab, setTab] = useState('games');
+  const notice = useNotice();
+  const load = useCallback(async () => {
+    try {
+      setData(await api<Overview>('/admin/overview'));
+      setError('');
+    } catch (e) {
+      if (e instanceof ApiError && [401, 403].includes(e.status)) await refresh();
+      else setError((e as Error).message);
+    }
+  }, [refresh]);
+  useEffect(() => {
+    if (!session?.authenticated || session.role !== 'admin') return;
+    void load();
+    const timer = setInterval(() => {
+      if (!document.hidden) void load();
+    }, 3000);
+    return () => clearInterval(timer);
+  }, [session, load]);
+  async function mutate(url: string, body: unknown, message: string) {
+    await api(url, body);
+    await load();
+    notice(message);
+  }
+  async function showPreview(game: AdminGame, version: string) {
+    try {
+      const result = await api<{ url: string; expiresAt: number }>(
+        `/admin/games/${game.id}/preview`,
+        { version },
+      );
+      setPreview({
+        ...result,
+        title: `${game.versions.find((v) => v.version === version)?.manifest.name} · v${version}`,
+      });
+    } catch (e) {
+      notice((e as Error).message, true);
+    }
+  }
+  if (!session)
+    return (
+      <main className="page">
+        <Spinner />
+      </main>
+    );
+  if (!session.authenticated) return <AuthPage admin />;
+  if (session.role !== 'admin')
+    return (
+      <main className="page">
+        <Empty title="這裡是管理員工作區" text="你的玩家帳號可以在大廳選擇遊戲。">
+          <Link className="button primary" to="/">
+            返回遊戲大廳
+          </Link>
+        </Empty>
+      </main>
+    );
+  return (
+    <main className="page admin-page">
+      <div className="admin-intro">
+        <div>
+          <div className="eyebrow">
+            <LayoutDashboard size={14} /> WORKSPACE
+          </div>
+          <h1>遊戲管理</h1>
+          <p>你的遊戲收藏，從這裡開始。</p>
+        </div>
+        <div className="admin-actions">
+          <button
+            className="button"
+            onClick={async () => {
+              try {
+                await api('/logout', {});
+                await refresh();
+              } catch (e) {
+                notice((e as Error).message, true);
+              }
+            }}
+          >
+            <LogOut size={16} />
+            <span>登出</span>
+          </button>
+          <button className="button primary" onClick={() => setImporting(true)}>
+            <Plus size={18} />
+            匯入遊戲
+          </button>
+        </div>
+      </div>
+      <div className="stats-row">
+        <div>
+          <span>全部遊戲</span>
+          <strong>{data?.games.length || 0}</strong>
+          <Gamepad2 />
+        </div>
+        <div>
+          <span>已上架</span>
+          <strong>{data?.games.filter((g) => g.published).length || 0}</strong>
+          <span className="stat-dot green" />
+        </div>
+        <div>
+          <span>待發布版本</span>
+          <strong>
+            {data?.games.flatMap((g) => g.versions).filter((v) => !v.publishedAt).length || 0}
+          </strong>
+          <span className="stat-dot yellow" />
+        </div>
+        <div>
+          <span>Repositories</span>
+          <strong>{data?.repositories.length || 0}</strong>
+          <Github />
+        </div>
+      </div>
+      <div className="admin-tab-row">
+        <div className="filter-tabs">
+          <button className={tab === 'games' ? 'active' : ''} onClick={() => setTab('games')}>
+            <Gamepad2 size={16} />
+            遊戲與版本
+          </button>
+          <button className={tab === 'imports' ? 'active' : ''} onClick={() => setTab('imports')}>
+            <History size={16} />
+            匯入紀錄
+            {data?.jobs.some((j) => ['queued', 'running'].includes(j.status)) && (
+              <span className="status-dot" />
+            )}
+          </button>
+          <button className={tab === 'updates' ? 'active' : ''} onClick={() => setTab('updates')}>
+            <RefreshCw size={16} />
+            平台更新
+          </button>
+        </div>
+        <button className="icon-button" title="重新整理" onClick={() => void load()}>
+          <RefreshCw size={17} />
+        </button>
+      </div>
+      {error && <ErrorMessage message={error} retry={() => void load()} />}
+      {tab === 'updates' ? (
+        <PlatformUpdates />
+      ) : !data ? (
+        <Spinner />
+      ) : tab === 'games' ? (
+        !data.games.length ? (
+          <Empty title="準備好第一款遊戲了嗎？" text="從 GitHub Release 匯入你的第一款遊戲。">
+            <button className="button primary" onClick={() => setImporting(true)}>
+              <Plus size={17} />
+              匯入遊戲
+            </button>
+          </Empty>
+        ) : (
+          <div className="admin-game-list">
+            {data.games.map((game) => (
+              <GameRow
+                key={game.id}
+                game={game}
+                repository={data.repositories.find((r) => r.id === game.repositoryId)?.fullName}
+                onPreview={(v) => void showPreview(game, v)}
+                onPublish={(version) =>
+                  setConfirm({
+                    title: game.versions.find((v) => v.version === version)?.publishedAt
+                      ? '切換發布版本'
+                      : '發布遊戲',
+                    text: `將 ${game.versions[0].manifest.name} 的 v${version} 設為目前上架版本。`,
+                    action: () =>
+                      mutate(`/admin/games/${game.id}/publish`, { version }, '遊戲已發布'),
+                  })
+                }
+                onUnpublish={() =>
+                  setConfirm({
+                    title: '下架遊戲',
+                    text: '下架後，玩家將無法開啟這款遊戲。所有版本會保留。',
+                    action: () => mutate(`/admin/games/${game.id}/unpublish`, {}, '遊戲已下架'),
+                  })
+                }
+              />
+            ))}
+          </div>
+        )
+      ) : (
+        <ImportHistory jobs={data.jobs} repositories={data.repositories} />
+      )}
+      {importing && (
+        <Dialog title="從 GitHub 匯入" onClose={() => setImporting(false)}>
+          <ImportForm
+            repositories={data?.repositories || []}
+            onUpdate={load}
+            onImported={() => {
+              setImporting(false);
+              setTab('imports');
+              void load();
+              notice('已加入匯入佇列');
+            }}
+          />
+        </Dialog>
+      )}
+      {preview && (
+        <Dialog title="遊戲預覽" wide onClose={() => setPreview(null)}>
+          <GameFrame {...preview} />
+          <p className="preview-note">
+            <Clock3 size={14} />
+            預覽授權有效 15 分鐘
+          </p>
+        </Dialog>
+      )}
+      {confirm && (
+        <Dialog
+          title={confirm.title}
+          onClose={() => {
+            if (!busy) setConfirm(null);
+          }}
+        >
+          <p className="confirm-text">{confirm.text}</p>
+          <div className="dialog-actions">
+            <button className="button" disabled={busy} onClick={() => setConfirm(null)}>
+              取消
+            </button>
+            <button
+              className="button primary"
+              disabled={busy}
+              onClick={async () => {
+                setBusy(true);
+                try {
+                  await confirm.action();
+                  setConfirm(null);
+                } catch (e) {
+                  notice((e as Error).message, true);
+                } finally {
+                  setBusy(false);
+                }
+              }}
+            >
+              {busy ? <LoaderCircle className="spin" size={16} /> : <Check size={16} />}確認
+            </button>
+          </div>
+        </Dialog>
+      )}
+    </main>
+  );
+}
+
+const updatePhases: Record<string, string> = {
+  queued: '準備更新',
+  building: '建置與測試',
+  'backing-up': '暫停服務並備份',
+  deploying: '啟動新版',
+  verifying: '健康檢查',
+  completed: '更新完成',
+  failed: '更新失敗',
+  'rolling-back': '還原舊版',
+  'rolled-back': '已回復舊版',
+  'recovery-failed': '需人工回復',
+};
+
+function PlatformUpdates() {
+  const [data, setData] = useState<UpdateStatus | null>(null);
+  const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [confirm, setConfirm] = useState(false);
+  const notice = useNotice();
+  const load = useCallback(async () => {
+    try {
+      setData(await api<UpdateStatus>('/admin/updates'));
+      setError('');
+    } catch (e) {
+      setError((e as Error).message);
+    }
+  }, []);
+  useEffect(() => {
+    void load();
+    const timer = setInterval(() => {
+      if (!document.hidden) void load();
+    }, 3000);
+    return () => clearInterval(timer);
+  }, [load]);
+  const running = data?.jobs?.find((job) => job.status === 'running');
+  const available = data?.latest && data.latest.commit !== data.current;
+  return (
+    <section className="platform-updates" aria-label="平台更新">
+      <div className="update-heading">
+        <div>
+          <h2>平台版本</h2>
+          <span className="muted">{data?.branch || 'main'}</span>
+        </div>
+        <button
+          className="button"
+          disabled={busy || !!running || !data?.enabled}
+          onClick={async () => {
+            setBusy(true);
+            try {
+              setData(await api<UpdateStatus>('/admin/updates/check', {}));
+              setError('');
+            } catch (e) {
+              setError((e as Error).message);
+            } finally {
+              setBusy(false);
+            }
+          }}
+        >
+          <RefreshCw size={16} className={busy ? 'spin' : ''} />
+          檢查更新
+        </button>
+      </div>
+      {error && <ErrorMessage message={error} retry={() => void load()} />}
+      {!data ? (
+        <Spinner />
+      ) : !data.enabled ? (
+        <div className="update-unavailable">
+          <CircleAlert size={20} />
+          <span>此部署尚未啟用 OTA 更新服務</span>
+        </div>
+      ) : (
+        <>
+          <div className="update-versions">
+            <div>
+              <span>目前提交</span>
+              <code title={data.current}>{data.current.slice(0, 12)}</code>
+            </div>
+            <div>
+              <span>最新提交</span>
+              <code title={data.latest?.commit}>
+                {data.latest?.commit.slice(0, 12) || '尚未檢查'}
+              </code>
+            </div>
+            <div>
+              <span>最後檢查</span>
+              <strong>
+                {data.checkedAt
+                  ? new Intl.DateTimeFormat('zh-HK', {
+                      dateStyle: 'short',
+                      timeStyle: 'short',
+                    }).format(new Date(data.checkedAt))
+                  : '—'}
+              </strong>
+            </div>
+          </div>
+          <div className="update-release">
+            <div>
+              <span className={`status-badge ${available ? 'draft' : 'published'}`}>
+                {available ? '有新版本' : data.latest ? '已是最新版本' : '等待檢查'}
+              </span>
+              <h3>{data.latest?.subject || 'GitHub 更新來源'}</h3>
+              <a href={data.repository} target="_blank" rel="noreferrer">
+                {data.repository?.replace('https://github.com/', '')}
+                <ExternalLink size={13} />
+              </a>
+            </div>
+            <button
+              className="button primary"
+              disabled={busy || !!running || !available}
+              onClick={() => setConfirm(true)}
+            >
+              <Download size={16} />
+              更新平台
+            </button>
+          </div>
+          {data.checkError && <ErrorMessage message={data.checkError} />}
+          {running && (
+            <div className="update-progress" role="status">
+              <LoaderCircle size={18} className="spin" />
+              <strong>{updatePhases[running.phase] || running.phase}</strong>
+              <code>{running.commit.slice(0, 12)}</code>
+            </div>
+          )}
+          <h3 className="update-history-title">更新紀錄</h3>
+          {!data.jobs?.length ? (
+            <p className="muted">尚無更新紀錄</p>
+          ) : (
+            <div className="update-history">
+              {data.jobs.map((job) => (
+                <div className="update-job" key={job.id}>
+                  <div>
+                    <span
+                      className={`status-badge ${job.status === 'completed' ? 'published' : job.status === 'failed' ? 'failed' : 'draft'}`}
+                    >
+                      {updatePhases[job.phase] || job.phase}
+                    </span>
+                    <code title={job.commit}>{job.commit.slice(0, 12)}</code>
+                    <span className="muted">{date(job.startedAt)}</span>
+                  </div>
+                  {job.backup && (
+                    <p>
+                      備份：<code>{job.backup}</code>
+                    </p>
+                  )}
+                  {job.error && (
+                    <details>
+                      <summary>錯誤詳情</summary>
+                      <pre>{job.error}</pre>
+                    </details>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </>
+      )}
+      {confirm && data?.latest && (
+        <Dialog title="更新平台" onClose={() => setConfirm(false)}>
+          <p className="update-confirm-copy">
+            將部署提交 <code>{data.latest.commit.slice(0, 12)}</code>
+            。切換版本時網站會短暫離線；帳號與遊戲資料會備份，啟動失敗時回復舊版。回復後需重新登入。
+          </p>
+          <div className="dialog-actions">
+            <button className="button" onClick={() => setConfirm(false)}>
+              取消
+            </button>
+            <button
+              className="button primary"
+              disabled={busy}
+              onClick={async () => {
+                setBusy(true);
+                try {
+                  await api('/admin/updates', { commit: data.latest!.commit });
+                  setConfirm(false);
+                  await load();
+                  notice('平台更新已開始');
+                } catch (e) {
+                  notice((e as Error).message, true);
+                } finally {
+                  setBusy(false);
+                }
+              }}
+            >
+              <Download size={16} />
+              確認更新
+            </button>
+          </div>
+        </Dialog>
+      )}
+    </section>
+  );
+}
+
+function GameRow({
+  game,
+  repository,
+  onPreview,
+  onPublish,
+  onUnpublish,
+}: {
+  game: AdminGame;
+  repository?: string;
+  onPreview: (v: string) => void;
+  onPublish: (v: string) => void;
+  onUnpublish: () => void;
+}) {
+  const [version, setVersion] = useState(game.activeVersion || game.versions[0].version);
+  const selected = game.versions.find((v) => v.version === version)!;
+  const current = game.published && game.activeVersion === version;
+  return (
+    <article className="admin-game">
+      <div className="admin-game-title">
+        <span className="game-mini-icon">
+          <Gamepad2 size={22} />
+        </span>
+        <div>
+          <h2>
+            {game.versions[0].manifest.name}
+            <span className={`badge ${game.published ? 'green' : 'neutral'}`}>
+              {game.published ? '已上架' : '未上架'}
+            </span>
+          </h2>
+          <span className="repo-label">
+            {repository ? (
+              <>
+                <Github size={13} />
+                {repository}
+              </>
+            ) : (
+              '本機範例遊戲'
+            )}
+          </span>
+        </div>
+        {game.published && (
+          <Link className="icon-button" title="開啟遊戲頁" to={`/games/${game.id}`}>
+            <ExternalLink size={17} />
+          </Link>
+        )}
+      </div>
+      <div className="version-row">
+        <label>
+          版本
+          <select
+            aria-label={`${game.id} 版本`}
+            value={version}
+            onChange={(e) => setVersion(e.target.value)}
+          >
+            {game.versions.map((v) => (
+              <option key={v.id} value={v.version}>
+                v{v.version}
+                {game.activeVersion === v.version && game.published
+                  ? ' · 目前上架'
+                  : !v.publishedAt
+                    ? ' · 待發布'
+                    : ' · 歷史版本'}
+              </option>
+            ))}
+          </select>
+        </label>
+        <span className="import-date">{date(selected.importedAt)} 匯入</span>
+        <div className="version-actions">
+          <button className="button small" onClick={() => onPreview(version)}>
+            <Play size={14} />
+            預覽
+          </button>
+          {current ? (
+            <button className="button small danger-text" onClick={onUnpublish}>
+              <Pause size={14} />
+              下架
+            </button>
+          ) : (
+            <button className="button primary small" onClick={() => onPublish(version)}>
+              {selected.publishedAt ? <History size={14} /> : <Upload size={14} />}
+              {selected.publishedAt ? '回退到此版本' : '發布'}
+            </button>
+          )}
+        </div>
+      </div>
+      <details className="version-details">
+        <summary>版本來源與校驗</summary>
+        <dl>
+          <dt>Release</dt>
+          <dd>{selected.releaseTag || '本機匯入'}</dd>
+          <dt>SHA-256</dt>
+          <dd className="checksum">{selected.sha256}</dd>
+        </dl>
+      </details>
+    </article>
+  );
+}
+
+function ImportHistory({ jobs, repositories }: { jobs: ImportJob[]; repositories: Repository[] }) {
+  if (!jobs.length)
+    return <Empty title="還沒有匯入紀錄" text="匯入遊戲後，可以在這裡查看處理狀態。" />;
+  return (
+    <div className="table-scroll">
+      <table>
+        <thead>
+          <tr>
+            <th>來源</th>
+            <th>狀態</th>
+            <th>遊戲版本</th>
+            <th>時間</th>
+          </tr>
+        </thead>
+        <tbody>
+          {jobs.map((job) => (
+            <tr key={job.id}>
+              <td>
+                <strong>{repositories.find((r) => r.id === job.repositoryId)?.fullName}</strong>
+                <small>Release #{job.releaseId}</small>
+              </td>
+              <td>
+                <span
+                  className={`badge ${job.status === 'completed' ? 'green' : job.status === 'failed' ? 'red' : 'amber'}`}
+                >
+                  {job.status === 'running' && <LoaderCircle className="spin" size={12} />}{' '}
+                  {phaseNames[job.phase] || job.phase}
+                </span>
+                {job.error && <p className="job-error">{job.error}</p>}
+              </td>
+              <td>{job.gameId ? `${job.gameId} · ${job.version}` : '—'}</td>
+              <td>{date(job.createdAt)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function ImportForm({
+  repositories,
+  onUpdate,
+  onImported,
+}: {
+  repositories: Repository[];
+  onUpdate: () => Promise<void>;
+  onImported: () => void;
+}) {
+  const [repositoryId, setRepositoryId] = useState(repositories[0]?.id || 0);
+  const [fullName, setFullName] = useState('');
+  const [adding, setAdding] = useState(repositories.length === 0);
+  const [releases, setReleases] = useState<Release[]>([]);
+  const [releaseId, setReleaseId] = useState(0);
+  const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [retry, setRetry] = useState(0);
+  useEffect(() => {
+    if (!repositoryId || adding) return;
+    let active = true;
+    setLoading(true);
+    setError('');
+    setReleases([]);
+    setReleaseId(0);
+    void api<{ releases: Release[] }>(`/admin/repositories/${repositoryId}/releases`)
+      .then((d) => {
+        if (active) {
+          setReleases(d.releases);
+          setReleaseId(d.releases.find((r) => r.asset)?.id || 0);
+        }
+      })
+      .catch((e) => {
+        if (active) setError(e.message);
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [repositoryId, adding, retry]);
+  async function addRepo(event: FormEvent) {
+    event.preventDefault();
+    setBusy(true);
+    setError('');
+    try {
+      const { repository } = await api<{ repository: Repository }>('/admin/repositories', {
+        fullName: fullName
+          .trim()
+          .replace(/^https:\/\/github\.com\//, '')
+          .replace(/\/$/, '')
+          .replace(/\.git$/, ''),
+      });
+      await onUpdate();
+      setRepositoryId(repository.id);
+      setAdding(false);
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <div className="import-form">
+      {error && <ErrorMessage message={error} retry={() => setRetry((v) => v + 1)} />}
+      <div className="import-source">
+        <Github size={22} />
+        <span>GitHub Release</span>
+        <span className="badge neutral">公開 repository</span>
+      </div>
+      {adding ? (
+        <form onSubmit={addRepo}>
+          <label>
+            Repository
+            <input
+              placeholder="owner / repository"
+              aria-label="Repository"
+              value={fullName}
+              onChange={(e) => setFullName(e.target.value)}
+              required
+              maxLength={220}
+            />
+          </label>
+          <div className="dialog-actions">
+            {!!repositories.length && (
+              <button className="button" type="button" onClick={() => setAdding(false)}>
+                取消新增
+              </button>
+            )}
+            <button className="button primary" disabled={busy}>
+              {busy ? <LoaderCircle className="spin" size={16} /> : <Plus size={16} />}加入來源
+            </button>
+          </div>
+        </form>
+      ) : (
+        <>
+          <div className="repo-select">
+            <label>
+              Repository
+              <select
+                value={repositoryId}
+                onChange={(e) => setRepositoryId(Number(e.target.value))}
+              >
+                {repositories.map((r) => (
+                  <option value={r.id} key={r.id}>
+                    {r.fullName}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <button className="icon-button" title="新增 repository" onClick={() => setAdding(true)}>
+              <Plus size={20} />
+            </button>
+          </div>
+          <div className="release-list">
+            {loading ? (
+              <Spinner text="正在讀取 Releases" />
+            ) : !releases.length ? (
+              <p className="muted">尚無可用的 Release。</p>
+            ) : (
+              releases.map((release) => (
+                <label
+                  className={`release-option ${!release.asset ? 'disabled' : ''}`}
+                  key={release.id}
+                >
+                  <input
+                    type="radio"
+                    name="release"
+                    value={release.id}
+                    checked={releaseId === release.id}
+                    disabled={!release.asset}
+                    onChange={() => setReleaseId(release.id)}
+                  />
+                  <span>
+                    <strong>{release.name}</strong>
+                    <small>
+                      {release.tag}
+                      {release.prerelease ? ' · 預發布' : ''}
+                      {release.asset
+                        ? ` · ${(release.asset.size / 1024 / 1024).toFixed(1)} MB`
+                        : ' · 缺少 game.zip'}
+                    </small>
+                  </span>
+                </label>
+              ))
+            )}
+          </div>
+          <div className="dialog-actions">
+            <button
+              className="button primary"
+              disabled={!releaseId || busy || loading}
+              onClick={async () => {
+                setBusy(true);
+                setError('');
+                try {
+                  await api('/admin/imports', { repositoryId, releaseId });
+                  onImported();
+                } catch (e) {
+                  setError((e as Error).message);
+                } finally {
+                  setBusy(false);
+                }
+              }}
+            >
+              {busy ? <LoaderCircle className="spin" size={16} /> : <Download size={16} />}
+              匯入此版本
+            </button>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+createRoot(document.getElementById('root')!).render(
+  <React.StrictMode>
+    <App />
+  </React.StrictMode>,
+);

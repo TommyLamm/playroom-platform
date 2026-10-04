@@ -1,0 +1,273 @@
+:root {
+  font-family: system-ui, 'Microsoft JhengHei', sans-serif;
+  color: #ecf7ee;
+  background: #173c36;
+  --accent: #ceec72;
+  --tile: #245047;
+  --back: #173c36;
+}
+* {
+  box-sizing: border-box;
+  letter-spacing: 0;
+}
+body {
+  margin: 0;
+  min-width: 260px;
+}
+button {
+  font: inherit;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+button:focus-visible {
+  outline: 3px solid white;
+  outline-offset: 3px;
+}
+.game {
+  max-width: 800px;
+  min-height: 100dvh;
+  margin: auto;
+  padding: 28px 42px 25px;
+  display: flex;
+  flex-direction: column;
+}
+header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 10px;
+  color: #a9c4b5;
+}
+header > div {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+header strong {
+  font-size: 17px;
+  color: var(--accent);
+}
+.heading {
+  text-align: center;
+  margin: 20px 0;
+}
+.heading > p:first-child {
+  font-size: 10px;
+  color: var(--accent);
+  margin: 0 0 9px;
+}
+.heading h1 {
+  font-size: 34px;
+  margin: 0;
+  font-weight: 700;
+}
+.heading > p:last-child {
+  font-size: 12px;
+  color: #a9c4b5;
+  margin: 9px 0 0;
+}
+.scorebar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  max-width: 460px;
+  width: 100%;
+  margin: 0 auto 16px;
+}
+.scorebar > div {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+.scorebar > div > span {
+  font-size: 9px;
+  color: #a9c4b5;
+}
+.scorebar strong {
+  font-size: 22px;
+  font-weight: 500;
+  min-width: 30px;
+}
+.scorebar strong span {
+  font-size: 12px;
+}
+.status {
+  font-size: 8px;
+  color: #a9c4b5;
+}
+.board {
+  width: 100%;
+  max-width: 460px;
+  margin: auto;
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 10px;
+  aspect-ratio: 5/4;
+}
+.tile {
+  background: var(--tile);
+  border: 1px solid #ffffff08;
+  border-radius: 8px;
+  position: relative;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  min-width: 0;
+  transition:
+    background 0.1s,
+    transform 0.1s;
+}
+.tile:active {
+  transform: scale(0.94);
+}
+.tile:after {
+  content: '';
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #698d7940;
+}
+.tile.lit {
+  background: var(--accent);
+  box-shadow: 0 0 24px #ceec7216;
+}
+.tile.lit:after {
+  width: 32%;
+  height: 32%;
+  border-radius: 50%;
+  border: 2px solid var(--back);
+  background: transparent;
+}
+.bottom {
+  margin: 20px auto 0;
+  width: 100%;
+  max-width: 460px;
+  text-align: center;
+}
+.bottom > button {
+  width: 100%;
+  border: 0;
+  background: var(--accent);
+  color: var(--back);
+  padding: 12px 16px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.bottom > button:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+.bottom p {
+  font-size: 10px;
+  color: #a9c4b5;
+  margin: 12px 0 0;
+  min-height: 16px;
+}
+body.colors {
+  --accent: #ffe298;
+  --tile: #ecb9c1;
+  --back: #593a62;
+  background: var(--back);
+}
+.colors .tile {
+  border: 0;
+}
+.colors .tile:after {
+  display: none;
+}
+.colors .tile.odd {
+  background: #d989a1;
+}
+.colors header,
+.colors .heading > p:last-child,
+.colors .scorebar > div > span,
+.colors .status,
+.colors .bottom p {
+  color: #dcc4df;
+}
+@media (max-width: 500px) {
+  .game {
+    padding: 17px 22px;
+    min-height: 100dvh;
+  }
+  .heading {
+    margin: 18px 0;
+  }
+  .heading h1 {
+    font-size: 28px;
+  }
+  .board {
+    gap: 8px;
+  }
+  .scorebar {
+    margin-bottom: 14px;
+  }
+  .scorebar > div {
+    gap: 6px;
+  }
+  .scorebar strong {
+    font-size: 20px;
+  }
+  .bottom {
+    margin-top: 17px;
+  }
+  .heading > p:last-child {
+    font-size: 11px;
+  }
+  .wordmark {
+    font-size: 9px;
+  }
+}
+:root {
+  color-scheme: dark;
+}
+@media (max-width: 500px) {
+  .game {
+    height: 100dvh;
+    min-height: 0;
+    overflow: hidden;
+  }
+  .board {
+    width: min(100%, calc((100dvh - 230px) * 1.25));
+    flex-shrink: 0;
+  }
+  .bottom {
+    flex-shrink: 0;
+  }
+  .heading {
+    flex-shrink: 0;
+  }
+}
+@media (max-width: 500px) and (max-height: 600px) {
+  .game {
+    padding: 12px 20px;
+  }
+  .heading {
+    margin: 10px 0;
+  }
+  .heading h1 {
+    font-size: 26px;
+  }
+  .heading > p:first-child {
+    margin-bottom: 6px;
+  }
+  .heading > p:last-child {
+    display: none;
+  }
+  .scorebar {
+    margin-bottom: 10px;
+  }
+  .bottom {
+    margin-top: 12px;
+  }
+  .bottom > button {
+    padding: 10px 16px;
+  }
+  .bottom p {
+    margin-top: 8px;
+  }
+}

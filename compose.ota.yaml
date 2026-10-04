@@ -1,0 +1,39 @@
+name: playroom
+services:
+  app:
+    image: ${APP_IMAGE:-playroom-app:initial}
+    build:
+      context: .
+      args:
+        APP_COMMIT: ${APP_COMMIT:-development}
+    environment:
+      UPDATER_URL: http://updater:3090
+      UPDATER_TOKEN: ${UPDATER_TOKEN:?Set a random UPDATER_TOKEN}
+  updater:
+    build:
+      context: .
+      dockerfile: updater/Dockerfile
+    image: playroom-updater:1
+    restart: unless-stopped
+    init: true
+    environment:
+      UPDATE_REPOSITORY: ${UPDATE_REPOSITORY:?Set public platform repository}
+      UPDATE_BRANCH: ${UPDATE_BRANCH:-main}
+      DEPLOY_DIR: ${DEPLOY_DIR:?Set absolute host deployment directory}
+      COMPOSE_PROJECT_NAME: ${COMPOSE_PROJECT_NAME:-playroom}
+      UPDATER_TOKEN: ${UPDATER_TOKEN}
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ${DEPLOY_DIR}:/deployment:ro
+      - ${DEPLOY_DIR}/ota-state:/state
+    expose:
+      - '3090'
+    depends_on:
+      app:
+        condition: service_healthy
+    stop_grace_period: 45s
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: '3'
