@@ -6,13 +6,12 @@ if [[ -e .env || -e ota-state/active.json ]]; then
   echo 'Existing deployment found; refusing to replace configuration. Follow docs/platform-updates.md.' >&2
   exit 1
 fi
-: "${PLATFORM_HOST:?Set PLATFORM_HOST}"
-: "${GAMES_HOST:?Set GAMES_HOST}"
-: "${ACME_EMAIL:?Set ACME_EMAIL}"
-[[ "$PLATFORM_HOST" != "$GAMES_HOST" ]]
-for value in "$PLATFORM_HOST" "$GAMES_HOST" "$ACME_EMAIL"; do
-  if [[ "$value" == *$'\n'* || "$value" == *$'\r'* || "$value" == *' '* ]]; then
-    echo 'Invalid deployment environment value' >&2
+: "${PLATFORM_ORIGIN:?Set HTTPS PLATFORM_ORIGIN}"
+: "${GAMES_ORIGIN:?Set HTTPS GAMES_ORIGIN}"
+[[ "$PLATFORM_ORIGIN" != "$GAMES_ORIGIN" ]]
+for value in "$PLATFORM_ORIGIN" "$GAMES_ORIGIN"; do
+  if [[ ! "$value" =~ ^https://[a-zA-Z0-9.-]+(:[0-9]+)?$ ]]; then
+    echo 'Origins must be HTTPS URLs without paths, credentials or trailing slashes.' >&2
     exit 1
   fi
 done
@@ -22,8 +21,8 @@ mkdir -p ota-state backups
 chmod 700 ota-state
 chown 1000:1000 backups
 chmod 700 backups
-printf 'PLATFORM_HOST=%s\nGAMES_HOST=%s\nACME_EMAIL=%s\nDEPLOY_DIR=%s\nCOMPOSE_PROJECT_NAME=playroom\nUPDATE_REPOSITORY=%s\nUPDATE_BRANCH=main\nUPDATER_TOKEN=%s\nAPP_COMMIT=%s\n' \
-  "$PLATFORM_HOST" "$GAMES_HOST" "$ACME_EMAIL" "$PWD" \
+printf 'PLATFORM_ORIGIN=%s\nGAMES_ORIGIN=%s\nDEPLOY_DIR=%s\nCOMPOSE_PROJECT_NAME=playroom\nUPDATE_REPOSITORY=%s\nUPDATE_BRANCH=main\nUPDATER_TOKEN=%s\nAPP_COMMIT=%s\n' \
+  "$PLATFORM_ORIGIN" "$GAMES_ORIGIN" "$PWD" \
   "$(git remote get-url origin)" "$(openssl rand -hex 32)" "$(git rev-parse HEAD)" > .env
 printf '%s\n' '{"services":{"app":{}}}' > ota-state/active.json
 compose=(docker compose -f compose.yaml -f compose.ota.yaml -f ota-state/active.json)
@@ -40,4 +39,5 @@ if [[ "${SEED_DEMOS:-0}" == '1' ]]; then
   "${compose[@]}" run --rm --no-deps app npm run demo:seed
 fi
 "${compose[@]}" up -d --wait --wait-timeout 180
-echo "Platform: https://$PLATFORM_HOST"
+echo "Platform origin: $PLATFORM_ORIGIN"
+echo 'Configure your HTTPS reverse proxy for 127.0.0.1:3000 and 127.0.0.1:3001.'

@@ -32,9 +32,9 @@ npm start
 
 ## Docker 部署
 
-需要 Docker Engine + Compose v2、可連入的 80/443 連接埠，以及兩個 DNS 記錄，例如 `play.example.com` 和 `games.example.com`，都指向同一台主機。
+需要 Docker Engine + Compose v2，以及自行管理的 HTTPS 反向代理與兩個不同主機名稱，例如 `play.example.com` 和 `games.example.com`。平台不再部署 Caddy，也不負責 DNS 或 TLS 憑證。
 
-1. 將 `.env.example` 複製為 `.env`，填入 `PLATFORM_HOST`、`GAMES_HOST`、`ACME_EMAIL`。
+1. 將 `.env.example` 複製為 `.env`，填入 `PLATFORM_ORIGIN=https://play.example.com` 與 `GAMES_ORIGIN=https://games.example.com`，不要加結尾 `/`。
 2. 執行以下指令建置、建立管理員與啟動服務。
 
 ```sh
@@ -44,7 +44,7 @@ docker compose up -d
 docker compose ps
 ```
 
-Caddy 會申請並更新 TLS 憑證。只有 Caddy 對主機公開連接埠；平台容器的 3000/3001 僅供 Compose 網路使用。`NODE_ENV=production` 強制 HTTPS。不要把 `.env`、資料目錄或 GitHub token 提交到版本庫。
+容器以 HTTP 提供後端，僅發布至主機的 `127.0.0.1:3000`（平台）及 `127.0.0.1:3001`（遊戲）；不佔用 80/443。主機上的 Nginx 負責對外 HTTPS，並保留正確的 Host。`NODE_ENV=production` 仍要求兩個公開 origin 使用 HTTPS，保持 Secure Cookie 與來源驗證。設定範本及切換步驟見 [Nginx 部署指南](docs/reverse-proxy.md)。不要把 `.env`、資料目錄或 GitHub token 提交到版本庫。
 
 可選的範例初始化應在 app 尚未啟動時執行：
 
@@ -52,7 +52,7 @@ Caddy 會申請並更新 TLS 憑證。只有 Caddy 對主機公開連接埠；�
 docker compose run --rm --no-deps app npm run demo:seed
 ```
 
-資料保存在 `playroom-data` named volume，憑證保存在 Caddy volumes。重建或重啟容器不會清除資料；**不要執行 `docker compose down -v`**，除非確定要刪除 volumes。
+資料保存在 `playroom-data` named volume；TLS 憑證由你的反向代理另行管理。重建或重啟容器不會清除資料；**不要執行 `docker compose down -v`**，除非確定要刪除 volumes。
 
 一般更新：先備份，再執行 `docker compose up -d --build`。資料庫使用 `PRAGMA user_version` 追蹤 migration，啟動時自動建立或升級至 schema v2；讀到較新 schema 的舊版程式會拒絕啟動。此版本只有單個 app 實例，不應增加 replicas。
 
@@ -116,7 +116,7 @@ npm run restore -- backups/2026-10-04
 npm start
 ```
 
-還原前會驗證所有備份檔案雜湊、資料庫完整性及入口／封面是否存在。Caddy 憑證不在平台備份內；可保留 Caddy volume，或讓 Caddy 重新申請。
+還原前會驗證所有備份檔案雜湊、資料庫完整性及入口／封面是否存在。反向代理設定、TLS 憑證、`.env` 及 OTA 狀態不在平台資料備份內，請另外安全保存。
 
 ## 安全與維護邊界
 

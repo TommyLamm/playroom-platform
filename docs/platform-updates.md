@@ -6,9 +6,9 @@
 
 Linux 上需要 Docker Engine 與 Compose v2+。平台來源 repository 必須公開，部署主機以 HTTPS 讀取指定分支；不把 GitHub 寫入憑證放到伺服器。可使用 main，或指定獨立的 production 分支。只有 repository 寫入者能改變伺服器執行的程式，請保護該分支並檢查 CI。
 
-全新部署可設定 `PLATFORM_HOST`、`GAMES_HOST`、`ACME_EMAIL` 後執行 `bash scripts/deploy-ota.sh`。指令拒絕覆寫既有 `.env` 或 OTA 狀態，自動產生更新 token 與隨機管理員密碼，後者僅儲存在主機的 `ota-state/initial-admin.txt`（mode 600）。不會把密碼輸出到日誌；亦可自行提供 `ADMIN_PASSWORD`。只有設定 `SEED_DEMOS=1` 時才加入範例遊戲。
+全新部署可設定 `PLATFORM_ORIGIN`、`GAMES_ORIGIN`（兩個不同主機名稱的完整 HTTPS origin）後執行 `bash scripts/deploy-ota.sh`，並自行部署 HTTPS 反向代理，見 [Nginx 部署指南](reverse-proxy.md)。指令拒絕覆寫既有 `.env` 或 OTA 狀態，自動產生更新 token 與隨機管理員密碼，後者僅儲存在主機的 `ota-state/initial-admin.txt`（mode 600）。不會把密碼輸出到日誌；亦可自行提供 `ADMIN_PASSWORD`。只有設定 `SEED_DEMOS=1` 時才加入範例遊戲。
 
-在固定部署路徑（例如 `/opt/playroom-platform`）clone repository。建立 `.env`，除了正常部署的兩個 HTTPS 主機名稱，增加：
+在固定部署路徑（例如 `/opt/playroom-platform`）clone repository。建立 `.env`，除了正常部署的兩個 HTTPS origin，增加：
 
 ```dotenv
 DEPLOY_DIR=/opt/playroom-platform
@@ -40,7 +40,7 @@ docker compose -f compose.yaml -f compose.ota.yaml -f ota-state/active.json up -
 1. 取得公開 repository 指定分支，鎖定 commit，不接受瀏覽器指定 URL、分支或任意指令。
 2. 建置新的 Docker 映像，執行型別檢查、建置與後端測試。此時舊平台繼續服務。
 3. 停止單一 app，製作包含帳號、所有遊戲版本與 SHA-256 清單的備份；完成後才替換 app。
-4. 啟動新映像，等待 Docker health check 並驗證運行中的 commit。Caddy 與 updater 不會被重新部署。
+4. 啟動新映像，等待 Docker health check 並驗證運行中的 commit。外部反向代理與 updater 不會被重新部署。
 5. 失敗時保留錯誤紀錄；若已做備份，驗證並還原到新的 named volume，以舊映像啟動。原 volume 不會刪除，留供人工檢查。回復後 session 清除，需重新登入。
 
 切換與備份期間網站會短暫離線，網頁會自動重試讀取更新狀態。不是零停機更新；維護期間匯入中的任務可能中斷，需重新匯入。SQLite migration 可能不可逆，因此不能只換回舊映像而忽略資料庫回復。備份和映像不會自動刪除，需監控磁碟與定期清理已確認不需的版本。
@@ -53,7 +53,7 @@ docker compose -f compose.yaml -f compose.ota.yaml -f ota-state/active.json up -
 
 updater 持有 Docker socket，因此具有主機等級的權限，只能由可信任管理員及 repository 維護者操作。網頁 app 不掛載 Docker socket。建置的 Dockerfile 與原始碼仍是可信任的部署內容，不能把更新來源設成陌生人的倉庫。
 
-OTA 只更新 app 的映像。Compose、Caddy、updater 本身、環境變數、外部系統套件及新的基礎設施需求，必須由主機管理員檢查後手動維護。這避免正在執行的更新服務把自身替換。更改 `.env` 後需 recreate updater 與 app。
+OTA 只更新 app 的映像。Compose、外部 Nginx／反向代理、updater 本身、環境變數、外部系統套件及新的基礎設施需求，必須由主機管理員檢查後手動維護。這避免正在執行的更新服務把自身替換。更改 `.env` 後需 recreate updater 與 app。
 
 ```sh
 docker compose -f compose.yaml -f compose.ota.yaml -f ota-state/active.json logs --tail=100 updater app

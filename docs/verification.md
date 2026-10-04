@@ -24,7 +24,7 @@
 
 ## Ubuntu / Docker / OTA
 
-已在使用者指定的 Ubuntu 26.04.1 LTS 主機實際測試 Docker Engine 29.8.2、Compose 5.6.0，並完成 app、Caddy 與 updater 部署。平台及遊戲使用不同的測試主機名稱，Caddy 成功取得公網 HTTPS 憑證。只公開 80/443，app 與 updater 無主機連接埠。
+初次部署的歷史紀錄：已在使用者指定的 Ubuntu 26.04.1 LTS 主機實際測試 Docker Engine 29.8.2、Compose 5.6.0，並完成 app、Caddy 與 updater 部署。當時平台及遊戲使用不同的測試主機名稱，Caddy 成功取得公網 HTTPS 憑證，只有 Caddy 公開 80/443。現行部署已改為自行管理反向代理，見 [Nginx 部署指南](reverse-proxy.md)。
 
 GitHub Actions 已執行並通過型別檢查、建置、29 項後端測試、桌面／手機 Playwright、Docker build、named-volume 備份／還原及容器重啟保留遊戲資料。
 

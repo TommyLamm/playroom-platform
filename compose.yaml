@@ -7,15 +7,15 @@ services:
       NODE_ENV: production
       BIND_HOST: 0.0.0.0
       DATA_DIR: /data
-      PLATFORM_ORIGIN: https://${PLATFORM_HOST:?Set PLATFORM_HOST in .env}
-      GAMES_ORIGIN: https://${GAMES_HOST:?Set GAMES_HOST in .env}
+      PLATFORM_ORIGIN: ${PLATFORM_ORIGIN:?Set HTTPS PLATFORM_ORIGIN in .env}
+      GAMES_ORIGIN: ${GAMES_ORIGIN:?Set HTTPS GAMES_ORIGIN in .env}
       GITHUB_TOKEN: ${GITHUB_TOKEN:-}
     volumes:
       - platform_data:/data
       - ${BACKUP_DIR:-./backups}:/backups
-    expose:
-      - '3000'
-      - '3001'
+    ports:
+      - '127.0.0.1:3000:3000'
+      - '127.0.0.1:3001:3001'
     security_opt:
       - no-new-privileges:true
     cap_drop:
@@ -26,31 +26,6 @@ services:
       options:
         max-size: 10m
         max-file: '3'
-  caddy:
-    image: caddy:2-alpine
-    restart: unless-stopped
-    environment:
-      PLATFORM_HOST: ${PLATFORM_HOST}
-      GAMES_HOST: ${GAMES_HOST}
-      ACME_EMAIL: ${ACME_EMAIL:?Set ACME_EMAIL in .env}
-    ports:
-      - '80:80'
-      - '443:443'
-      - '443:443/udp'
-    volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile:ro
-      - caddy_data:/data
-      - caddy_config:/config
-    depends_on:
-      app:
-        condition: service_healthy
-    logging:
-      driver: json-file
-      options:
-        max-size: 10m
-        max-file: '3'
 volumes:
   platform_data:
     name: ${DATA_VOLUME_NAME:-playroom-data}
-  caddy_data:
-  caddy_config:
