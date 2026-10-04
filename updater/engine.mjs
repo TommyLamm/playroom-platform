@@ -340,7 +340,7 @@ export class UpdateEngine {
           '-v',
           `${volume}:/data`,
           '-v',
-          `${backupMount}:/backups:ro`,
+          `${backupMount}:/backups`,
           recovery.image,
           'npm',
           'run',

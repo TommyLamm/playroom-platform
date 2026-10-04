@@ -107,6 +107,10 @@ for (const failure of ['none', 'build', 'backup', 'deploy', 'rollback'])
       assert.ok(calls.some((call) => call.includes('restore')));
       const restore = calls.find((call) => call.includes('restore'))!;
       assert.ok(restore.includes('none'), 'restore should have no network');
+      assert.ok(
+        restore.includes('/opt/playroom/backups:/backups'),
+        'legacy WAL backup validation needs a writable sidecar directory',
+      );
       assert.ok(!restore.includes('original:/data'), 'never erase or restore over original volume');
     }
     if (failure === 'rollback') await assert.rejects(engine.start(next), /人工回復/);

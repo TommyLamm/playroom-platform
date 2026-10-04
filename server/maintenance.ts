@@ -63,6 +63,7 @@ export async function backup(dataDir: string, destination: string) {
       });
     }
     snapshot.pragma('wal_checkpoint(TRUNCATE)');
+    snapshot.pragma('journal_mode=DELETE');
   } finally {
     snapshot.close();
   }
