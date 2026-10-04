@@ -35,3 +35,15 @@ GitHub Actions 已執行並通過型別檢查、建置、29 項後端測試、�
 實際部署測試修正了容器內資料鎖的位置與舊 SQLite WAL snapshot 的回復相容性。`scripts/ota-recovery-smoke.mjs` 僅允許指定隔離測試專案，不可對線上部署執行。
 
 目前沒有執行 Safari、Firefox、多人負載或跨主機測試。平台維持第一版的單主機、可信任開發者範圍。
+
+## 移除 Caddy / 外部 Nginx 接入
+
+2026-10-04 依使用者要求移除 Compose 的 Caddy 服務與 Caddyfile，將 app 發布連接埠限定至主機 `127.0.0.1:3000/3001`。型別檢查與 29 項後端測試再次通過；在 Ubuntu 主機驗證 Compose 設定、初始化腳本 Bash 語法，並以臨時自簽憑證及一次性 Nginx 容器執行 `nginx -t` 通過，沒有安裝或啟動 Nginx 服務。
+
+先完成平台資料備份 `pre-proxy-removal-20261004T114350Z` 及受限權限的部署設定快照，再移除 Caddy 容器並重新建立 app/updater 的容器設定。保留當前 app 映像與 OTA active.json，沒有觸發程式 OTA；兩個容器健康。主機的 80/443 已無 listener，從外網連線舊 HTTPS 入口及主機 3000 皆不可達。
+
+新域名尚未指定，運行中的 origin 暫為 `https://play.example.invalid`、`https://games.example.invalid`，保持 production HTTPS、Host、來源與 Cookie 安全限制。舊平台 Host 回覆 421，健康檢查正常，未登入管理 API 回覆 401，4 款已發布遊戲的入口可在主機診斷請求下正常讀取，updater 的授權狀態 API 正常。
+
+直接比對切換前備份與現有資料庫的 users、games、versions、repositories，內容一致；SQLite schema 2、integrity_check=ok，保留 2 個帳號、4 款上架遊戲及 6 個版本，另驗證 36 個遊戲檔案 SHA-256 與備份一致。原有 Caddy 憑證 volumes 僅留存，未再掛載或使用；沒有清除任何平台資料 volume。
+
+尚未驗證使用者自行部署的新域名、憑證或 Nginx 端到端瀏覽器流程，待其部署後按 Nginx 部署指南驗收。

@@ -35,7 +35,7 @@ systemctl reload nginx
 
 未啟用 OTA 時使用 `docker compose up -d --no-build --force-recreate --wait app`。不要覆寫 `ota-state/active.json`，也不要執行 `down -v`。
 
-5. 從外網驗證兩個 HTTPS 域名、登入／註冊、遊玩 iframe、後台預覽與 OTA 狀態；域名改變後需重新登入。
+5. 從外網驗證兩個 HTTPS 域名、登入／註冊、遊玩 iframe、後台預覽與 OTA 狀態；域名改變後需重新登入。遊戲來源變更也會改變瀏覽器儲存來源，舊域名的 localStorage 存檔不會自動轉移；若遊戲支援存檔匯出／匯入，需另行遷移，這不影響主機保存的遊戲檔案與平台帳號。
 
 ## 等待新域名期間
 
