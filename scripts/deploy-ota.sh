@@ -21,7 +21,7 @@ umask 077
 mkdir -p ota-state backups
 chmod 700 ota-state
 chown 1000:1000 backups
-chmod 755 backups
+chmod 700 backups
 printf 'PLATFORM_HOST=%s\nGAMES_HOST=%s\nACME_EMAIL=%s\nDEPLOY_DIR=%s\nCOMPOSE_PROJECT_NAME=playroom\nUPDATE_REPOSITORY=%s\nUPDATE_BRANCH=main\nUPDATER_TOKEN=%s\nAPP_COMMIT=%s\n' \
   "$PLATFORM_HOST" "$GAMES_HOST" "$ACME_EMAIL" "$PWD" \
   "$(git remote get-url origin)" "$(openssl rand -hex 32)" "$(git rev-parse HEAD)" > .env

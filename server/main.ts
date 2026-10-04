@@ -8,7 +8,11 @@ import { createApplication } from './app.js';
 if (existsSync('.env')) process.loadEnvFile('.env');
 const config = getConfig();
 await mkdir(config.dataDir, { recursive: true });
-const releaseLock = await lockfile.lock(config.dataDir, { realpath: false, stale: 30000 });
+const releaseLock = await lockfile.lock(config.dataDir, {
+  realpath: false,
+  stale: 30000,
+  lockfilePath: `${config.dataDir}/.platform.lock`,
+});
 const store = openStore(config.dataDir);
 const app = await createApplication(config, store, { logger: true });
 let stopping = false;

@@ -120,9 +120,13 @@ export async function restore(source: string, dataDir: string) {
     check.close();
   }
   await fsp.mkdir(dataDir, { recursive: true });
-  const unlock = await lockfile.lock(dataDir, { realpath: false, stale: 30000 });
+  const unlock = await lockfile.lock(dataDir, {
+    realpath: false,
+    stale: 30000,
+    lockfilePath: path.join(dataDir, '.platform.lock'),
+  });
   try {
-    if ((await fsp.readdir(dataDir)).length)
+    if ((await fsp.readdir(dataDir)).some((name) => name !== '.platform.lock'))
       throw new Error('Restore destination is no longer empty');
     for (const file of manifest.files) {
       const destination = path.join(dataDir, file.path);

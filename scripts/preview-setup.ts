@@ -14,7 +14,11 @@ if (
 )
   throw new Error('Preview setup is for loopback development only');
 await fs.mkdir(config.dataDir, { recursive: true });
-const unlock = await lockfile.lock(config.dataDir, { realpath: false, stale: 30000 });
+const unlock = await lockfile.lock(config.dataDir, {
+  realpath: false,
+  stale: 30000,
+  lockfilePath: path.join(config.dataDir, '.platform.lock'),
+});
 const store = openStore(config.dataDir);
 try {
   if (!store.db.select().from(users).where(eq(users.role, 'admin')).get()) {

@@ -49,7 +49,11 @@ try {
     console.info(`Restore complete: ${config.dataDir}`);
   } else if (command === 'admin:init' || command === 'demo:seed') {
     await fsp.mkdir(config.dataDir, { recursive: true });
-    const unlock = await lockfile.lock(config.dataDir, { realpath: false, stale: 30000 });
+    const unlock = await lockfile.lock(config.dataDir, {
+      realpath: false,
+      stale: 30000,
+      lockfilePath: path.join(config.dataDir, '.platform.lock'),
+    });
     const store = openStore(config.dataDir);
     try {
       if (command === 'admin:init') {
