@@ -131,13 +131,13 @@ test('visitor analytics records anonymous and authenticated activity with server
     await restore(path.join(root, 'backup'), path.join(root, 'restored'));
     const recovered = openStore(path.join(root, 'restored'));
     try {
-      assert.equal(recovered.sqlite.pragma('user_version', { simple: true }), 6);
+      assert.equal(recovered.sqlite.pragma('user_version', { simple: true }), 7);
       assert.deepEqual(recovered.sqlite.prepare('SELECT * FROM visitor_events ORDER BY id').all(), store.sqlite.prepare('SELECT * FROM visitor_events ORDER BY id').all());
-      recovered.sqlite.exec('DROP TABLE visitor_events; PRAGMA user_version=5;');
+      recovered.sqlite.exec('DROP TABLE import_batch_items; DROP TABLE import_batches; DROP TABLE github_owners; ALTER TABLE repositories DROP COLUMN archived; ALTER TABLE repositories DROP COLUMN checked_at; ALTER TABLE repositories DROP COLUMN check_error; ALTER TABLE repositories DROP COLUMN cached_releases; DROP TABLE visitor_events; PRAGMA user_version=5;');
     } finally { recovered.sqlite.close(); }
     const upgraded = openStore(path.join(root, 'restored'));
     try {
-      assert.equal(upgraded.sqlite.pragma('user_version', { simple: true }), 6);
+      assert.equal(upgraded.sqlite.pragma('user_version', { simple: true }), 7);
       assert.equal((upgraded.sqlite.prepare('SELECT COUNT(*) AS n FROM users').get() as { n: number }).n, 2);
       assert.equal((upgraded.sqlite.prepare('SELECT COUNT(*) AS n FROM games').get() as { n: number }).n, 2);
       assert.equal((upgraded.sqlite.prepare('SELECT COUNT(*) AS n FROM visitor_events').get() as { n: number }).n, 0);

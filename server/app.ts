@@ -19,7 +19,7 @@ import {
   type Store,
 } from './db.js';
 import { hashToken, passwordHash, token, verifyPassword } from './auth.js';
-import { githubSource, repositoryName, type GitHubSource } from './github.js';
+import { githubSource, normalizeRepository, type GitHubSource } from './github.js';
 import { adminLibrary, ImportQueue, publish } from './library.js';
 import { gameId, gameVersion, isSafePath } from '../shared/manifest.js';
 import type { PublicGame } from '../shared/types.js';
@@ -31,6 +31,7 @@ import { registerPlayerLibrary } from './player-library.js';
 import { registerAccountSettings } from './account-settings.js';
 import { registerAnalytics } from './analytics.js';
 import { registerVisitors } from './visitors.js';
+import { registerSources } from './sources.js';
 
 type Session = typeof sessions.$inferSelect;
 declare module 'fastify' {
@@ -126,6 +127,7 @@ export async function createApplication(
   registerPlayerLibrary(platform, store, requireUser);
   registerAnalytics(platform, store, config, requireAdmin);
   registerVisitors(platform, store, config, requireAdmin);
+  registerSources(platform, store, github, queue, requireAdmin);
   function startSession(
     request: FastifyRequest,
     reply: import('fastify').FastifyReply,
@@ -307,8 +309,8 @@ export async function createApplication(
     '/api/v1/admin/repositories',
     { preHandler: requireAdmin },
     async (request, reply) => {
-      const input = z.object({ fullName: repositoryName }).parse(request.body);
-      const fullName = await github.checkRepository(input.fullName);
+      const input = z.object({ fullName: z.string().max(240) }).parse(request.body);
+      const fullName = await github.checkRepository(normalizeRepository(input.fullName));
       const found = store.db
         .select()
         .from(repositories)

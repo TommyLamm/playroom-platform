@@ -130,14 +130,14 @@ export class ImportQueue {
       .where(inArray(jobs.status, ['queued', 'running']))
       .run();
   }
-  enqueue(repositoryId: number, releaseId: number) {
+  enqueue(repositoryId: number, releaseId: number, deferred = false) {
     if (this.closing) throw new AppError(503, '平台正在關閉');
     const pending = this.store.db
       .select()
       .from(jobs)
       .where(inArray(jobs.status, ['queued', 'running']))
       .all();
-    if (pending.length >= 10) throw new AppError(429, '等待匯入的任務已滿，請稍後重試');
+    if (pending.length >= 100) throw new AppError(429, '等待匯入的任務已滿（最多 100 款），請稍後重試');
     if (pending.some((j) => j.repositoryId === repositoryId && j.releaseId === releaseId))
       throw new AppError(409, '此 Release 已在匯入佇列中');
     const repo = this.store.db
@@ -146,6 +146,7 @@ export class ImportQueue {
       .where(eq(repositories.id, repositoryId))
       .get();
     if (!repo) throw new AppError(404, '找不到 repository');
+    if (repo.archived) throw new AppError(409, '來源已封存，請先恢復');
     const id = randomUUID();
     const now = new Date().toISOString();
     this.store.db
@@ -160,8 +161,19 @@ export class ImportQueue {
         updatedAt: now,
       })
       .run();
-    this.chain = this.chain.then(() => this.run(id, repo.fullName, repositoryId, releaseId));
+    if (!deferred) this.startJobs([id]);
     return id;
+  }
+  // A batch creates task associations transactionally. Start downloads only
+  // after that transaction commits, so a rollback cannot leave orphan imports.
+  startJobs(ids: string[]) {
+    for (const id of ids) {
+      const job = this.store.db.select().from(jobs).where(eq(jobs.id, id)).get();
+      if (!job || job.status !== 'queued') continue;
+      const repo = this.store.db.select().from(repositories).where(eq(repositories.id, job.repositoryId)).get();
+      if (!repo) continue;
+      this.chain = this.chain.then(() => this.run(id, repo.fullName, repo.id, job.releaseId));
+    }
   }
   private update(id: string, values: Partial<typeof jobs.$inferInsert>) {
     this.store.db

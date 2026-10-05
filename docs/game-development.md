@@ -179,7 +179,17 @@ SDK 以版本 1 的 `playroom` postMessage 協定與當前大廳 iframe 連線�
 | `GET /admin/analytics` | 選填 `days=7`（預設）或 `30`；UTC 區間、活躍玩家／開啟／完成／熱門遊戲、成績提交／每日指標、磁碟用量與最近備份狀態；只供管理員 |
 | `GET /admin/visitors` | 選填 `days=7`（預設）或 `30`；訪客、瀏覽、遊戲開啟總數、每日趨勢、國家分佈與前 10 款訪客熱門遊戲；只供管理員 |
 | `GET /admin/visitors/records` | 選填 `days=7`／`30`、`page`、`country`（ISO 國家碼或 unknown）、`ip`、`gameId`、`kind`、`visitor`（完整雜湊）；每頁 25 筆，包含 IP／國家／帳號／頁面／遊戲／來源／User-Agent；只供管理員 |
-| `POST /admin/repositories` | `{fullName:"owner/repository"}` |
+| `POST /admin/repositories` | `{fullName:"owner/repository"}`，亦接受 GitHub repository URL；大小寫及重複來源正規化 |
+| `GET /admin/github-owners` | 常用 GitHub 帳號／組織 |
+| `POST /admin/github-owners` | `{login}`，檢查並保存公開帳號／組織 |
+| `POST /admin/github-owners/:login/remove` | `{}`，移除常用帳號，不刪除來源 |
+| `GET /admin/github-owners/:login/repositories` | 選填 `page`（預設 1），每次最多 100 個公開 repositories、`added` 及 `hasMore` |
+| `GET /admin/sources` | 遊戲來源、封存狀態、保存的 Release 檢查結果及已匯入版本 |
+| `POST /admin/repositories/:id/check` | `{}`，更新 Release 檢查與時間，失敗保留快取並回傳 `checkError` |
+| `POST /admin/repositories/:id/state` | `{archived}`，封存／恢復；匯入中的來源不可封存 |
+| `POST /admin/import-batches` | `{requestId,items:[{repositoryId,releaseId}]}`，UUID requestId，同批次冪等，最多 100 項，回傳 202 與 `batch` |
+| `GET /admin/import-batches` | 最近 50 個批次的總數、完成／跳過、失敗及等待中數量 |
+| `GET /admin/import-batches/:id` | 批次完整項目、任務狀態及錯誤，不受 overview 50 筆限制 |
 | `GET /admin/repositories/:id/releases` | 最近 100 個 Release 與 game.zip 資訊 |
 | `POST /admin/imports` | `{repositoryId,releaseId}`，回傳 202 與 `jobId` |
 | `POST /admin/games/:id/preview` | `{version}`，回傳 `url`、`expiresAt` |
@@ -188,20 +198,20 @@ SDK 以版本 1 的 `playroom` postMessage 協定與當前大廳 iframe 連線�
 
 `/me/progress` 只查登入帳號的已完成局次。`points` 依完成時間從舊到新排列，最多 30 筆；完成時間相同時按局次 ID 排序。每筆含 `previousBest` 與 `personalBest`；首次成績的 previousBest 為 null、personalBest 為 false，同分不算突破。最佳成績及突破次數以整個榜單的歷史計算，早於最近 30 局的成績也會影響判斷；沿用榜單 ID 的版本合併，不同 ID 分開。生涯公開摘要不包含這些逐局趨勢，下架後本人仍可查看。
 
-所有 POST 必須附正確平台 Origin。`/login` 與 `/register` 不需既有 session；`/logout`、帳號設定、遊玩、心跳、局次及成績寫入需任一登入角色及 `X-CSRF-Token`；所有 `/admin/*` 操作需 `admin` session，修改操作另外需 `X-CSRF-Token`。玩家登入不授予管理能力。遊戲不應直接呼叫平台 API，使用 SDK 由大廳代為提交。寫入限流以帳號計算：每分鐘最多 30 次建立遊玩記錄、20 次心跳、60 次開始局次、60 次完成提交及 30 次公開範圍更新；修改密碼與撤銷其他 session 共用每帳號 15 分鐘最多 5 次的限制，重新登入不繞過限制。匯入任務狀態為 `queued`、`running`、`completed` 或 `failed`；後台每三秒更新狀態，失敗時重新提交即可。
+所有 POST 必須附正確平台 Origin。`/login` 與 `/register` 不需既有 session；`/logout`、帳號設定、遊玩、心跳、局次及成績寫入需任一登入角色及 `X-CSRF-Token`；所有 `/admin/*` 操作需 `admin` session，修改操作另外需 `X-CSRF-Token`。玩家登入不授予管理能力。遊戲不應直接呼叫平台 API，使用 SDK 由大廳代為提交。寫入限流以帳號計算：每分鐘最多 30 次建立遊玩記錄、20 次心跳、60 次開始局次、60 次完成提交及 30 次公開範圍更新；修改密碼與撤銷其他 session 共用每帳號 15 分鐘最多 5 次的限制，重新登入不繞過限制。匯入任務狀態為 `queued`、`running`、`completed` 或 `failed`；後台每三秒更新狀態，失敗時重新提交即可；同時只執行一款匯入，等待及處理中合計最多 100 款。
 
 營運指標的期間從 UTC 今天往前 6／29 天的 00:00 起算，至回應產生時間，包含今天；活躍玩家是期間內有開啟、心跳或完成事件的登入帳號，訪客與預覽不納入。熱門遊戲以開啟次數排序，最多 10 款，保留已下架遊戲的歷史活動。成績提交只統計伺服器收到且屬於有效登入 session 的本人局次：2xx 為 `success`、4xx 為 `rejected`、5xx 為 `server_error`；重複提交及重試再次計數，完成局數不重複。`failureRate` 為（拒絕＋伺服器錯誤）／提交次數，沒有提交時為 null；離線或未到達伺服器的失敗不計。指標上線後開始累積，不補算過往失敗。
 
 管理員另可在 `/api/v1/admin/visitors` 與 `/api/v1/admin/visitors/records` 查看匿名及登入玩家的訪客統計和活動明細（UTC 7／30 天）。訪客 Cookie 由平台簽發並以雜湊識別；記錄保留 90 天，國家由伺服器按 IP 的本機 GeoIP 資料推算，未知或內網不強行指定國家。平台頁面負責送出瀏覽及公開遊戲 iframe 載入事件，無 SDK 遊戲亦能記開啟；遊戲本身不得取得訪客 IP／Cookie、直接呼叫 `/api/v1/visits` 或另行提交平台訪客統計。管理員活動及預覽不納入，訪客開啟不代表完成一局或保存帳號成績，亦不改變生涯與成績 API 的權限。
 
-營運回應的磁碟總容量／可用空間與資料／遊戲檔案用量最多快取 30 秒，讀取失敗回傳 null，介面顯示「未知」；測量不追蹤符號連結。備份狀態為 `never`、`running`、`success` 或 `failed`，只表示平台備份指令記錄的狀態，不驗證備份目的地仍可用。schema v6 備份保留公開範圍設定、營運指標與訪客記錄，支援 schema v1–v6 還原；快照中的進行中狀態會轉為 failed 並提醒還原後重新備份。源資料庫在快照、檔案與雜湊清單全部完成後才記錄 success，避免宣稱尚未完成的備份成功。舊平台版本回退需使用升級前備份。
+營運回應的磁碟總容量／可用空間與資料／遊戲檔案用量最多快取 30 秒，讀取失敗回傳 null，介面顯示「未知」；測量不追蹤符號連結。備份狀態為 `never`、`running`、`success` 或 `failed`，只表示平台備份指令記錄的狀態，不驗證備份目的地仍可用。schema v7 備份保留公開範圍設定、營運指標、訪客記錄、常用 GitHub 帳號、來源檢查與匯入批次，支援 schema v1–v7 還原；快照中的進行中狀態會轉為 failed 並提醒還原後重新備份。源資料庫在快照、檔案與雜湊清單全部完成後才記錄 success，避免宣稱尚未完成的備份成功。舊平台版本回退需使用升級前備份。
 
 ## 上架驗收
 
 1. 在獨立 repository 完成遊戲，依標準填寫 `game.json`；封面必須清楚呈現實際遊戲畫面。
 2. 執行 `game:pack` 和 `game:validate`，驗證成品完整、不含私鑰、token 或伺服器程式。
 3. 推送與 manifest 一致的 tag，由 Release workflow 產生 `game.zip`；修正後發布新版本。
-4. Admin 在「管理後台 → 匯入遊戲」加入 repository、選擇 Release、匯入並等待驗證完成。
+4. Admin 可在「管理後台 → 遊戲來源」保存多位開發者的 GitHub 帳號／組織，探索公開 repositories 並勾選批量加入，或一次貼上多行 URL／owner/repo；來源列表可搜尋、按帳號及狀態篩選，封存不下架或刪除遊戲。從來源列表多選匯入，或由「匯入遊戲」搜尋選取來源，再確認各款 Release 並等待驗證完成。每批最多 100 款，預設最新有效正式版，預發布需手動選擇；已匯入 Release 跳過、相同等待中任務沿用。批次進度可重新開啟，失敗或重啟中斷可批量重試，匯入完成不會自動上架。
 5. 先預覽，再發布。必須測試開始、主要玩法、結束及重新開始；確認沒有缺失資源或 console 錯誤。
 6. 在桌面及所有宣告裝置驗證 iframe 畫面沒有遮擋／溢出；手機主要觸控目標建議至少 44 px，直向畫面必須可完成遊戲。
 7. 發布更新前確認遊戲 ID 相同、新版本號不同；上架後再測一次公開遊玩，保留舊版以供回退。

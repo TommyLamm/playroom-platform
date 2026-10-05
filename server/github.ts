@@ -4,11 +4,24 @@ import { pipeline } from 'node:stream/promises';
 import { z } from 'zod';
 import { AppError } from './errors.js';
 import type { Release } from '../shared/types.js';
+import type { GitHubOwner, DiscoveredRepository } from '../shared/sources.js';
 
 export const repositoryName = z
   .string()
   .regex(/^[a-zA-Z0-9][a-zA-Z0-9-]{0,38}\/[a-zA-Z0-9_.-]{1,100}$/)
   .refine((v) => !v.endsWith('/.') && !v.endsWith('/..'));
+export const ownerName = z.string().regex(/^[a-zA-Z0-9][a-zA-Z0-9-]{0,38}$/);
+export function normalizeRepository(value: string) {
+  let name = value.trim();
+  if (/^https:\/\//i.test(name)) {
+    let url: URL;
+    try { url = new URL(name); } catch { throw new AppError(400, '請輸入有效的 GitHub repository URL'); }
+    if (url.origin !== 'https://github.com' || url.username || url.password || url.search || url.hash)
+      throw new AppError(400, '請輸入 GitHub repository URL 或 owner/repo');
+    name = url.pathname.slice(1);
+  }
+  return repositoryName.parse(name.replace(/\/$/, '').replace(/\.git$/i, '')).toLowerCase();
+}
 const assetSchema = z.object({
   id: z.number().int().positive(),
   name: z.string(),
@@ -28,6 +41,8 @@ const releaseSchema = z.object({
 export type ReleaseAsset = z.infer<typeof assetSchema>;
 export type ResolvedRelease = { release: Release; asset: ReleaseAsset };
 export interface GitHubSource {
+  owner(login: string): Promise<Pick<GitHubOwner, 'login' | 'kind'>>;
+  discover(login: string, kind: GitHubOwner['kind'], page: number): Promise<{ repositories: Omit<DiscoveredRepository, 'added'>[]; hasMore: boolean }>;
   checkRepository(fullName: string): Promise<string>;
   releases(fullName: string): Promise<Release[]>;
   resolve(fullName: string, releaseId: number): Promise<ResolvedRelease>;
@@ -64,7 +79,8 @@ export function githubSource(githubToken: string, fetcher: typeof fetch = fetch)
     return response.json();
   }
   function publicRelease(raw: z.infer<typeof releaseSchema>): Release {
-    const asset = raw.assets.find((a) => a.name === 'game.zip');
+    const matches = raw.assets.filter((a) => a.name === 'game.zip');
+    const asset = matches.length === 1 ? matches[0] : undefined;
     return {
       id: raw.id,
       tag: raw.tag_name,
@@ -75,6 +91,22 @@ export function githubSource(githubToken: string, fetcher: typeof fetch = fetch)
     };
   }
   return {
+    async owner(login) {
+      const raw = z.object({ login: ownerName, type: z.enum(['User', 'Organization']) })
+        .parse(await api(`/users/${ownerName.parse(login)}`));
+      return { login: raw.login.toLowerCase(), kind: raw.type };
+    },
+    async discover(login, kind, page) {
+      ownerName.parse(login);
+      z.number().int().min(1).max(10000).parse(page);
+      const endpoint = kind === 'Organization' ? `/orgs/${login}/repos?type=public` : `/users/${login}/repos?type=owner`;
+      const raw = z.array(z.object({ full_name: repositoryName, description: z.string().nullable(),
+        private: z.boolean(), archived: z.boolean(), fork: z.boolean() }))
+        .parse(await api(`${endpoint}&sort=full_name&direction=asc&per_page=100&page=${page}`));
+      return { repositories: raw.filter((r) => !r.private).map((r) => ({
+        fullName: r.full_name.toLowerCase(), description: r.description, archived: r.archived, fork: r.fork,
+      })), hasMore: raw.length === 100 };
+    },
     async checkRepository(fullName) {
       repositoryName.parse(fullName);
       const repo = z
@@ -94,8 +126,9 @@ export function githubSource(githubToken: string, fetcher: typeof fetch = fetch)
       const raw = releaseSchema.parse(
         await api(`/repos/${repositoryName.parse(fullName)}/releases/${releaseId}`),
       );
-      const asset = raw.assets.find((a) => a.name === 'game.zip');
-      if (raw.draft || !asset) throw new AppError(400, 'Release 必須已發布並附有 game.zip');
+      const matches = raw.assets.filter((a) => a.name === 'game.zip');
+      const asset = matches.length === 1 ? matches[0] : undefined;
+      if (raw.draft || !asset) throw new AppError(400, 'Release 必須已發布並附有唯一的 game.zip');
       const url = new URL(asset.browser_download_url);
       if (
         url.origin !== 'https://github.com' ||

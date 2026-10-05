@@ -3,7 +3,24 @@ import assert from 'node:assert/strict';
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
-import { githubSource } from '../server/github.js';
+import { githubSource, normalizeRepository } from '../server/github.js';
+
+test('GitHub discovery uses public user/org pagination, canonical owners and unique release assets', async () => {
+  const requests: string[] = [];
+  const adapter = githubSource('server-only', (async (input, init) => {
+    const url = String(input); requests.push(url);
+    assert.equal(new Headers(init?.headers).get('authorization'), 'Bearer server-only');
+    if (url.includes('/users/Alice') && !url.includes('/repos')) return Response.json({ login: 'Alice', type: 'User' });
+    if (url.includes('/users/alice/repos') || url.includes('/orgs/team/repos')) return Response.json([{ full_name: 'alice/game', private: false, archived: false, fork: false, description: null }, { full_name: 'alice/private', private: true, archived: false, fork: false, description: null }]);
+    return Response.json([{ id: 1, tag_name: 'v1.0.0', name: null, published_at: '2026-10-01', prerelease: false, draft: false, assets: [1, 2].map((id) => ({ id, name: 'game.zip', size: 1, browser_download_url: 'https://github.com/alice/game/releases/download/v1.0.0/game.zip' })) }]);
+  }) as typeof fetch);
+  assert.deepEqual(await adapter.owner('Alice'), { login: 'alice', kind: 'User' });
+  assert.equal((await adapter.discover('alice', 'User', 2)).repositories.length, 1);
+  assert.match(requests.at(-1)!, /page=2/); assert.match(requests.at(-1)!, /per_page=100/);
+  await adapter.discover('team', 'Organization', 1); assert.match(requests.at(-1)!, /orgs\/team\/repos\?type=public/);
+  assert.equal((await adapter.releases('alice/game'))[0].asset, null);
+  assert.equal(normalizeRepository(' HTTPS://github.com/Alice/game.git/ '), 'alice/game');
+});
 
 test('GitHub adapter rejects rate limits and private sources', async () => {
   const limited = githubSource(

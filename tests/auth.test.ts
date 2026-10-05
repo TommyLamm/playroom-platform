@@ -171,6 +171,7 @@ test('version-one database migrates administrator, sessions and game data withou
   old.exec(`
     CREATE TABLE admins (id INTEGER PRIMARY KEY CHECK(id = 1), username TEXT NOT NULL UNIQUE, password TEXT NOT NULL);
     CREATE TABLE sessions (token_hash TEXT PRIMARY KEY, admin_id INTEGER NOT NULL REFERENCES admins(id), csrf TEXT NOT NULL, expires_at INTEGER NOT NULL);
+    CREATE TABLE repositories (id INTEGER PRIMARY KEY, full_name TEXT NOT NULL UNIQUE, created_at TEXT NOT NULL);
     CREATE TABLE games (id TEXT PRIMARY KEY, active_version TEXT);
     CREATE INDEX sessions_expiry ON sessions(expires_at);
     INSERT INTO games VALUES ('existing-game', '1.0.0');
@@ -183,7 +184,7 @@ test('version-one database migrates administrator, sessions and game data withou
   old.close();
   const store = openStore(root);
   try {
-    assert.equal(store.sqlite.pragma('user_version', { simple: true }), 6);
+    assert.equal(store.sqlite.pragma('user_version', { simple: true }), 7);
     assert.equal(store.db.select().from(users).get()?.role, 'admin');
     assert.equal(store.db.select().from(users).get()?.password, password);
     assert.equal(store.db.select().from(sessions).get()?.userId, 1);

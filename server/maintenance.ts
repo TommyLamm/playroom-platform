@@ -115,7 +115,7 @@ export async function restore(source: string, dataDir: string) {
   try {
     if (check.pragma('integrity_check', { simple: true }) !== 'ok')
       throw new Error('Backup database integrity check failed');
-    if (![1, 2, 3, 4, 5, 6].includes(check.pragma('user_version', { simple: true }) as number))
+    if (![1, 2, 3, 4, 5, 6, 7].includes(check.pragma('user_version', { simple: true }) as number))
       throw new Error('Unsupported database version');
     for (const row of check.prepare('SELECT manifest FROM versions').all() as {
       manifest: string;

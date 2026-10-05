@@ -54,7 +54,7 @@ import {
   EyeOff,
   X,
 } from 'lucide-react';
-import type { AdminGame, ImportJob, PublicGame, Release, Repository } from '../shared/types';
+import type { AdminGame, ImportJob, PublicGame, Repository } from '../shared/types';
 import type { Session } from '../shared/account';
 import type { UpdateStatus } from '../shared/update';
 import { api, ApiError, setCsrf } from './api';
@@ -67,6 +67,7 @@ import { FavoriteButton, LibraryError, PlayerLibraryProvider, PlayerLibrarySecti
 import { AccountSettingsPage } from './account-settings';
 import { AdminAnalytics } from './admin-analytics';
 import { VisitorTracking, trackVisitor } from './visitor-tracking';
+import { SourcesPanel, ImportWorkspace, ImportBatches } from './admin-sources';
 
 const SessionContext = createContext<{ session: Session | null; refresh: () => Promise<void> }>({
   session: null,
@@ -969,6 +970,7 @@ function Admin() {
   const [data, setData] = useState<Overview | null>(null);
   const [error, setError] = useState('');
   const [importing, setImporting] = useState(false);
+  const [importIds, setImportIds] = useState<number[]>([]);
   const [preview, setPreview] = useState<{ url: string; title: string; expiresAt: number; previewManifest: GameManifest } | null>(
     null,
   );
@@ -1019,6 +1021,18 @@ function Admin() {
       notice((e as Error).message, true);
     }
   }
+  async function previewImported(gameId: string, version: string) {
+    try {
+      const overview = await api<Overview>('/admin/overview');
+      setData(overview);
+      const game = overview.games.find((g) => g.id === gameId);
+      if (!game) throw new Error('找不到遊戲');
+      setImporting(false);
+      await showPreview(game, version);
+    } catch (e) {
+      notice((e as Error).message, true);
+    }
+  }
   if (!session)
     return (
       <main className="page">
@@ -1061,7 +1075,10 @@ function Admin() {
             <LogOut size={16} />
             <span>登出</span>
           </button>
-          <button className="button primary" onClick={() => setImporting(true)}>
+          <button className="button primary" onClick={() => {
+            setImportIds([]);
+            setImporting(true);
+          }}>
             <Plus size={18} />
             匯入遊戲
           </button>
@@ -1104,6 +1121,10 @@ function Admin() {
               <span className="status-dot" />
             )}
           </button>
+          <button className={tab === 'sources' ? 'active' : ''} onClick={() => setTab('sources')}>
+            <Github size={16} />
+            遊戲來源
+          </button>
           <button className={tab === 'analytics' ? 'active' : ''} onClick={() => setTab('analytics')}>
             <Grid2X2 size={16} />
             營運概況
@@ -1124,10 +1145,21 @@ function Admin() {
         <PlatformUpdates />
       ) : !data ? (
         <Spinner />
+      ) : tab === 'sources' ? (
+        <SourcesPanel
+          onChanged={() => void load()}
+          onImport={(ids) => {
+            setImportIds(ids);
+            setImporting(true);
+          }}
+        />
       ) : tab === 'games' ? (
         !data.games.length ? (
           <Empty title="準備好第一款遊戲了嗎？" text="從 GitHub Release 匯入你的第一款遊戲。">
-            <button className="button primary" onClick={() => setImporting(true)}>
+            <button className="button primary" onClick={() => {
+              setImportIds([]);
+              setImporting(true);
+            }}>
               <Plus size={17} />
               匯入遊戲
             </button>
@@ -1162,19 +1194,26 @@ function Admin() {
           </div>
         )
       ) : (
-        <ImportHistory jobs={data.jobs} repositories={data.repositories} />
+        <>
+          <ImportBatches
+            onChanged={() => void load()}
+            onPreview={(id, version) => void previewImported(id, version)}
+          />
+          <ImportHistory jobs={data.jobs} repositories={data.repositories} />
+        </>
       )}
       {importing && (
-        <Dialog title="從 GitHub 匯入" onClose={() => setImporting(false)}>
-          <ImportForm
-            repositories={data?.repositories || []}
-            onUpdate={load}
-            onImported={() => {
-              setImporting(false);
+        <Dialog title="從 GitHub 匯入" wide onClose={() => {
+          setImporting(false);
+          void load();
+        }}>
+          <ImportWorkspace
+            initialIds={importIds}
+            onChanged={() => {
               setTab('imports');
               void load();
-              notice('已加入匯入佇列');
             }}
+            onPreview={(id, version) => void previewImported(id, version)}
           />
         </Dialog>
       )}
@@ -1550,181 +1589,6 @@ function ImportHistory({ jobs, repositories }: { jobs: ImportJob[]; repositories
           ))}
         </tbody>
       </table>
-    </div>
-  );
-}
-
-function ImportForm({
-  repositories,
-  onUpdate,
-  onImported,
-}: {
-  repositories: Repository[];
-  onUpdate: () => Promise<void>;
-  onImported: () => void;
-}) {
-  const [repositoryId, setRepositoryId] = useState(repositories[0]?.id || 0);
-  const [fullName, setFullName] = useState('');
-  const [adding, setAdding] = useState(repositories.length === 0);
-  const [releases, setReleases] = useState<Release[]>([]);
-  const [releaseId, setReleaseId] = useState(0);
-  const [error, setError] = useState('');
-  const [busy, setBusy] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [retry, setRetry] = useState(0);
-  useEffect(() => {
-    if (!repositoryId || adding) return;
-    let active = true;
-    setLoading(true);
-    setError('');
-    setReleases([]);
-    setReleaseId(0);
-    void api<{ releases: Release[] }>(`/admin/repositories/${repositoryId}/releases`)
-      .then((d) => {
-        if (active) {
-          setReleases(d.releases);
-          setReleaseId(d.releases.find((r) => r.asset)?.id || 0);
-        }
-      })
-      .catch((e) => {
-        if (active) setError(e.message);
-      })
-      .finally(() => {
-        if (active) setLoading(false);
-      });
-    return () => {
-      active = false;
-    };
-  }, [repositoryId, adding, retry]);
-  async function addRepo(event: FormEvent) {
-    event.preventDefault();
-    setBusy(true);
-    setError('');
-    try {
-      const { repository } = await api<{ repository: Repository }>('/admin/repositories', {
-        fullName: fullName
-          .trim()
-          .replace(/^https:\/\/github\.com\//, '')
-          .replace(/\/$/, '')
-          .replace(/\.git$/, ''),
-      });
-      await onUpdate();
-      setRepositoryId(repository.id);
-      setAdding(false);
-    } catch (e) {
-      setError((e as Error).message);
-    } finally {
-      setBusy(false);
-    }
-  }
-  return (
-    <div className="import-form">
-      {error && <ErrorMessage message={error} retry={() => setRetry((v) => v + 1)} />}
-      <div className="import-source">
-        <Github size={22} />
-        <span>GitHub Release</span>
-        <span className="badge neutral">公開 repository</span>
-      </div>
-      {adding ? (
-        <form onSubmit={addRepo}>
-          <label>
-            Repository
-            <input
-              placeholder="owner / repository"
-              aria-label="Repository"
-              value={fullName}
-              onChange={(e) => setFullName(e.target.value)}
-              required
-              maxLength={220}
-            />
-          </label>
-          <div className="dialog-actions">
-            {!!repositories.length && (
-              <button className="button" type="button" onClick={() => setAdding(false)}>
-                取消新增
-              </button>
-            )}
-            <button className="button primary" disabled={busy}>
-              {busy ? <LoaderCircle className="spin" size={16} /> : <Plus size={16} />}加入來源
-            </button>
-          </div>
-        </form>
-      ) : (
-        <>
-          <div className="repo-select">
-            <label>
-              Repository
-              <select
-                value={repositoryId}
-                onChange={(e) => setRepositoryId(Number(e.target.value))}
-              >
-                {repositories.map((r) => (
-                  <option value={r.id} key={r.id}>
-                    {r.fullName}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <button className="icon-button" title="新增 repository" onClick={() => setAdding(true)}>
-              <Plus size={20} />
-            </button>
-          </div>
-          <div className="release-list">
-            {loading ? (
-              <Spinner text="正在讀取 Releases" />
-            ) : !releases.length ? (
-              <p className="muted">尚無可用的 Release。</p>
-            ) : (
-              releases.map((release) => (
-                <label
-                  className={`release-option ${!release.asset ? 'disabled' : ''}`}
-                  key={release.id}
-                >
-                  <input
-                    type="radio"
-                    name="release"
-                    value={release.id}
-                    checked={releaseId === release.id}
-                    disabled={!release.asset}
-                    onChange={() => setReleaseId(release.id)}
-                  />
-                  <span>
-                    <strong>{release.name}</strong>
-                    <small>
-                      {release.tag}
-                      {release.prerelease ? ' · 預發布' : ''}
-                      {release.asset
-                        ? ` · ${(release.asset.size / 1024 / 1024).toFixed(1)} MB`
-                        : ' · 缺少 game.zip'}
-                    </small>
-                  </span>
-                </label>
-              ))
-            )}
-          </div>
-          <div className="dialog-actions">
-            <button
-              className="button primary"
-              disabled={!releaseId || busy || loading}
-              onClick={async () => {
-                setBusy(true);
-                setError('');
-                try {
-                  await api('/admin/imports', { repositoryId, releaseId });
-                  onImported();
-                } catch (e) {
-                  setError((e as Error).message);
-                } finally {
-                  setBusy(false);
-                }
-              }}
-            >
-              {busy ? <LoaderCircle className="spin" size={16} /> : <Download size={16} />}
-              匯入此版本
-            </button>
-          </div>
-        </>
-      )}
     </div>
   );
 }

@@ -1,5 +1,25 @@
 # 驗證紀錄
 
+## Cloudflare Proxy 真實 IP 部署（2026-10-05）
+
+已透過 SSH 在 `103.199.19.41` 部署。實際反向代理為 Nginx Proxy Manager 2.16.0（`nginx-app-1`），原本讀取 X-Real-IP；現以持久化 `/root/nginx/data/nginx/custom/server_proxy.conf` 明確信任 Cloudflare 官方 IPv4／IPv6 網段，改讀 CF-Connecting-IP，套用至 playroom.party 與 games.playroom.party。Nginx 語法檢查及 reload 成功；沒有 pull／build 或重啟 app、updater，也沒有部署尚未提交的 GitHub 來源管理改版。設定備份保存在主機 `/root/nginx/maintenance-cloudflare-backup-20261005/`。
+
+驗證包含 Cloudflare IPv4／IPv6 的訪客 API 寫入、伺服器公網 IPv4 與 Cloudflare trace／SQLite IP 完全相符、偽造 X-Forwarded-For／X-Real-IP 不影響記錄，以及非 Cloudflare 網段直連偽造 CF-Connecting-IP／forwarding headers 仍記錄真正連線 IP。地區正確顯示 HK／VN。平台健康檢查及現有 mini-dungeon 1.2.0 遊戲入口皆回覆 200，app／updater 保持 healthy。12 筆本次測試事件按完整 requestId 及專用 User-Agent 精確備份後移除，避免影響正式訪客統計；保留其他訪客資料。既有訪客相關 9 項後端測試亦通過。
+
+## GitHub 遊戲來源與批量匯入（2026-10-05）
+
+型別檢查、正式 build、完整 100 項後端／SDK／工具測試通過。既有 Playwright 回歸 20 個桌面／手機情境通過，2 個依 viewport 設定跳過；手機來源卡片修正後，受影響的管理匯入及手機情境再次通過。production npm audit 為 0 個已知漏洞。本次未新增依賴。
+
+新增後端測試涵蓋全部來源／批次 API 的管理員權限、Origin／CSRF、多帳號與組織、探索分頁及已加入標記、URL 正規化與去重、缺少唯一 game.zip／無效 tag／預發布的版本選擇、檢查失敗保留快取、封存與恢復、50 款逐項匯入與部分失敗、60 項進度不受 overview 50 筆限制、批次 requestId 冪等及不同內容衝突、已匯入跳過、等待中任務沿用、100 個任務容量、重啟中斷與重試。批次關聯寫入故障會回滾任務，只有 transaction commit 後才啟動下載，不產生孤立匯入。schema v6→v7 保留來源及訪客資料，新版備份還原保留常用帳號、來源檢查、批次與全部任務關聯；既有舊版 migration／還原測試通過。
+
+另外使用 Playwright CLI、獨立臨時資料庫與測試 GitHub adapter，實測保存 alice／bob／team 三個帳號、探索載入 100＋10 個 repositories、搜尋第 110 個來源並加入；加入來源期間不讀取 Release。多行貼上 50 個來源、重複 URL、無效格式與不存在的來源，去重及逐項回報正確；加入與檢查請求的最大並行數實測為 3。53 個來源檢查中模擬一款 GitHub 額度失敗，顯示錯誤並可重試；開發者／狀態篩選、25 筆分頁、封存及恢復正常。
+
+實際透過新版三步流程匯入 50 款，預設正式版、手動改選一款預發布，無效 tag／缺少附件的版本不可選。等待期間關閉視窗並重新整理，仍可開啟完整批次；最後 49 款成功、1 款 tag／Manifest 不符，單獨重試後成功，原批次 50 項歷史保留。由批次直接開啟預覽並開始遊玩，公開遊戲數仍為原本 2 款，確認匯入及預覽不自動上架。
+
+1440px 桌面與 390px 手機截圖已檢視；版本確認的主要操作保持可見。手機來源表格曾受既有 620px 最小寬度影響，已覆寫：卡片及容器實測皆寬 303px，所有欄位完整顯示，document scrollWidth 375px 不超過 390px viewport，並加入真正量測表格／容器寬度的回歸檢查。截圖保存在 `output/playwright/sources-desktop.png`、`sources-mobile.png`、`import-versions-desktop.png` 及 `import-versions-mobile.png`。
+
+README、開發指南及遊戲 Agent 範本已同步，線上規格連結仍追蹤 main。部署可沿用 OTA，資料庫自動升級至 schema v7，沒有修改 Compose／updater。回退不支援 v7 的舊平台須使用升級前備份。本次未部署、推送或修改正式資料。
+
 ## 訪客統計與活動記錄（2026-10-05）
 
 型別檢查、正式 build 與完整 88 項後端／SDK／工具測試通過。既有 Playwright 回歸測試 20 個桌面／手機情境通過，另 2 個依既有 viewport 設定跳過。完整及 production npm audit 均為 0 個已知漏洞。

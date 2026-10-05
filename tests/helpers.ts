@@ -66,6 +66,10 @@ export async function fakeGitHub(root: string, id = 'test-game'): Promise<GitHub
       asset: { id: releaseId + 1000, name: 'game.zip', size: (await fs.stat(file)).size },
     });
   return {
+    async owner(login) { return { login: login.toLowerCase(), kind: 'User' }; },
+    async discover(login, _kind, _page) {
+      return { repositories: [{ fullName: `${login}/game`, description: 'Test game', archived: false, fork: false }], hasMore: false };
+    },
     async checkRepository(name) {
       return name.toLowerCase();
     },

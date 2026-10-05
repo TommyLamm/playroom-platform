@@ -172,12 +172,12 @@ test('analytics storage failures show unknown and schema4 backups remain compati
   const response = await app.platform.inject({ url: '/api/v1/admin/analytics', headers: { host: new URL(config.platformOrigin).host, cookie: String(login.headers['set-cookie']).split(';')[0] } });
   assert.equal(response.statusCode, 200, response.body);
   assert.deepEqual(Object.values(response.json().storage).slice(0,4), [null, null, null, null]);
-  store.sqlite.exec('DROP TABLE visitor_events; DROP TABLE operational_state; DROP TABLE score_submission_metrics; DROP TABLE account_settings; PRAGMA user_version=4;');
+  store.sqlite.exec('DROP TABLE import_batch_items; DROP TABLE import_batches; DROP TABLE github_owners; ALTER TABLE repositories DROP COLUMN archived; ALTER TABLE repositories DROP COLUMN checked_at; ALTER TABLE repositories DROP COLUMN check_error; ALTER TABLE repositories DROP COLUMN cached_releases; DROP TABLE visitor_events; DROP TABLE operational_state; DROP TABLE score_submission_metrics; DROP TABLE account_settings; PRAGMA user_version=4;');
   await backup(actual, path.join(root, 'legacy-backup'));
   await restore(path.join(root, 'legacy-backup'), path.join(root, 'legacy-restored'));
   const restored = openStore(path.join(root, 'legacy-restored'));
   try {
-    assert.equal(restored.sqlite.pragma('user_version', { simple: true }), 6);
+    assert.equal(restored.sqlite.pragma('user_version', { simple: true }), 7);
     assert.equal(readBackupState(restored.sqlite).status, 'never');
   } finally { restored.sqlite.close(); }
 });

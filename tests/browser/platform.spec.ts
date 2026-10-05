@@ -134,9 +134,11 @@ test('admin imports releases, previews, publishes, rolls back and unpublishes', 
   await page.getByRole('button', { name: '匯入遊戲', exact: true }).first().click();
   await page.getByRole('textbox', { name: 'Repository', exact: true }).fill('example/game');
   await page.getByRole('button', { name: '加入來源' }).click();
+  await page.getByRole('button', { name: '確認版本', exact: true }).click();
   await page.getByRole('radio').first().check();
   await page.getByRole('button', { name: '匯入此版本' }).click();
-  await expect(page.getByText('已匯入', { exact: true })).toBeVisible();
+  await expect(page.getByRole('dialog').getByText('已匯入', { exact: true })).toBeVisible();
+  await page.getByRole('dialog').getByRole('button', { name: '關閉', exact: true }).click();
   await page.getByRole('button', { name: '遊戲與版本' }).click();
   let row = page.locator('.admin-game').filter({ hasText: '測試光點' });
   await row.getByRole('button', { name: '預覽', exact: true }).click();
@@ -157,9 +159,12 @@ test('admin imports releases, previews, publishes, rolls back and unpublishes', 
   expect(unsupportedCareer.totals.completedRuns).toBe(0);
   await unsupported.close();
   await page.getByRole('button', { name: '匯入遊戲', exact: true }).click();
+  await page.getByRole('checkbox', { name: '匯入 example/game', exact: true }).check();
+  await page.getByRole('button', { name: '確認版本', exact: true }).click();
   await page.getByRole('radio').nth(1).check();
   await page.getByRole('button', { name: '匯入此版本' }).click();
-  await expect(page.getByText('已匯入', { exact: true })).toHaveCount(2);
+  await expect(page.getByRole('dialog').getByText('已匯入', { exact: true })).toBeVisible();
+  await page.getByRole('dialog').getByRole('button', { name: '關閉', exact: true }).click();
   await page.getByRole('button', { name: '遊戲與版本' }).click();
   row = page.locator('.admin-game').filter({ hasText: '測試光點' });
   await row.getByRole('combobox').selectOption('2.0.0');
@@ -187,7 +192,16 @@ test('admin remains usable at narrow widths', async ({ page }, testInfo) => {
   await expect(page.locator('.admin-game').first()).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await page.screenshot({ path: 'artifacts/admin-mobile.png', fullPage: true });
-  await page.getByRole('button', { name: '匯入遊戲', exact: true }).click();
+  await page.getByRole('button', { name: '遊戲來源', exact: true }).click();
+  await expect(page.locator('.source-table tbody tr').first()).toBeVisible();
+  // Page overflow alone cannot catch a desktop-width table clipped inside its
+  // scroll container: the mobile cards and their values must fit that container.
+  expect(await page.locator('.source-table').evaluate((table) =>
+    table.getBoundingClientRect().width <= table.parentElement!.clientWidth,
+  )).toBe(true);
+  await page.getByRole('checkbox', { name: '選取 example/game', exact: true }).check();
+  await expect(page.getByRole('button', { name: '匯入選取項目', exact: true })).toBeVisible();
+  await page.getByRole('button', { name: '匯入選取項目', exact: true }).click();
   await expect(page.getByRole('dialog')).toBeVisible();
   const bounds = await page.getByRole('dialog').boundingBox();
   expect(bounds!.x).toBeGreaterThanOrEqual(0);

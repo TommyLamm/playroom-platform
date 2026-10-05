@@ -180,7 +180,7 @@ test('settings survive backups and schema-four migration preserves sessions, fav
   await restore(path.join(root, 'backup'), path.join(root, 'restored'));
   const recovered = openStore(path.join(root, 'restored'));
   try {
-    assert.equal(recovered.sqlite.pragma('user_version', { simple: true }), 6);
+    assert.equal(recovered.sqlite.pragma('user_version', { simple: true }), 7);
     assert.equal((recovered.sqlite.prepare('SELECT career_visibility FROM account_settings').get() as { career_visibility: string }).career_visibility, 'private');
     assert.equal((recovered.sqlite.prepare('SELECT COUNT(*) AS count FROM sessions').get() as { count: number }).count, 0);
     assert.equal((recovered.sqlite.prepare('SELECT score FROM runs WHERE id=?').get(run) as { score: number }).score, 7);
@@ -188,10 +188,10 @@ test('settings survive backups and schema-four migration preserves sessions, fav
   const favorite = await req('/api/v1/me/favorites/signal-tap', { favorite: true }, alice);
   // Existing library API remains usable independent of account visibility.
   assert.equal(favorite.statusCode, 200);
-  store.sqlite.exec('DROP TABLE visitor_events; DROP TABLE account_settings; DROP TABLE score_submission_metrics; DROP TABLE operational_state; PRAGMA user_version=4;');
+  store.sqlite.exec('DROP TABLE import_batch_items; DROP TABLE import_batches; DROP TABLE github_owners; ALTER TABLE repositories DROP COLUMN archived; ALTER TABLE repositories DROP COLUMN checked_at; ALTER TABLE repositories DROP COLUMN check_error; ALTER TABLE repositories DROP COLUMN cached_releases; DROP TABLE visitor_events; DROP TABLE account_settings; DROP TABLE score_submission_metrics; DROP TABLE operational_state; PRAGMA user_version=4;');
   const migrated = openStore(config.dataDir);
   try {
-    assert.equal(migrated.sqlite.pragma('user_version', { simple: true }), 6);
+    assert.equal(migrated.sqlite.pragma('user_version', { simple: true }), 7);
     assert.equal((migrated.sqlite.prepare('SELECT COUNT(*) AS count FROM sessions').get() as { count: number }).count, 1);
     assert.equal((migrated.sqlite.prepare('SELECT COUNT(*) AS count FROM versions').get() as { count: number }).count, 2);
     assert.equal((migrated.sqlite.prepare('SELECT COUNT(*) AS count FROM favorites').get() as { count: number }).count, 1);
