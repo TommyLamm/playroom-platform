@@ -30,6 +30,7 @@ import { registerCareer } from './career.js';
 import { registerPlayerLibrary } from './player-library.js';
 import { registerAccountSettings } from './account-settings.js';
 import { registerAnalytics } from './analytics.js';
+import { registerVisitors } from './visitors.js';
 
 type Session = typeof sessions.$inferSelect;
 declare module 'fastify' {
@@ -124,6 +125,7 @@ export async function createApplication(
   registerCareer(platform, store, requireUser);
   registerPlayerLibrary(platform, store, requireUser);
   registerAnalytics(platform, store, config, requireAdmin);
+  registerVisitors(platform, store, config, requireAdmin);
   function startSession(
     request: FastifyRequest,
     reply: import('fastify').FastifyReply,

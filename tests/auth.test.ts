@@ -183,7 +183,7 @@ test('version-one database migrates administrator, sessions and game data withou
   old.close();
   const store = openStore(root);
   try {
-    assert.equal(store.sqlite.pragma('user_version', { simple: true }), 5);
+    assert.equal(store.sqlite.pragma('user_version', { simple: true }), 6);
     assert.equal(store.db.select().from(users).get()?.role, 'admin');
     assert.equal(store.db.select().from(users).get()?.password, password);
     assert.equal(store.db.select().from(sessions).get()?.userId, 1);

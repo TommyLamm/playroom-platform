@@ -26,6 +26,16 @@
 .analytics-panel dd { margin: 0; text-align: right; overflow-wrap: anywhere; }
 .analytics-backup { font-weight: 700; color: #2e684b; }
 .analytics-backup-failed, .analytics-error { color: #a53b2b; }
+.visitor-analytics { margin-top: 1.5rem; min-width: 0; }
+.visitor-analytics h4 { margin: 0 0 .8rem; font-size: 1rem; }
+.visitor-filters { display: flex; flex-wrap: wrap; gap: .8rem; align-items: flex-end; margin-bottom: 1rem; }
+.visitor-filters label { display: flex; flex-direction: column; gap: .4rem; font-size: .85rem; flex: 1 1 150px; min-width: 0; }
+.visitor-filters input, .visitor-filters select { width: 100%; min-width: 0; padding: .55rem; border: 1px solid #c8d4cd; border-radius: .6rem; background: white; color: #263a30; }
+.visitor-records small { display: block; margin-top: .3rem; color: var(--muted, #647269); }
+.visitor-records td:last-child { white-space: normal; min-width: 12rem; max-width: 20rem; overflow-wrap: anywhere; }
+.visitor-records details p { font-size: .8rem; }
+.visitor-link { padding: 0; color: #234b3c; text-decoration: underline; font-family: monospace; background: none; border: 0; }
+.visitor-pagination { display: flex; justify-content: flex-end; flex-wrap: wrap; align-items: center; gap: .8rem; margin-top: 1rem; }
 @media (max-width: 650px) {
   .analytics-totals { grid-template-columns: 1fr; }
   .analytics-totals > * { display: flex; align-items: center; justify-content: space-between; gap: .6rem; }

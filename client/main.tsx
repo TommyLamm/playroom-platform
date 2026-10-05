@@ -66,6 +66,7 @@ import { CareerPage, LeaderboardPanel } from './career';
 import { FavoriteButton, LibraryError, PlayerLibraryProvider, PlayerLibrarySections } from './player-library';
 import { AccountSettingsPage } from './account-settings';
 import { AdminAnalytics } from './admin-analytics';
+import { VisitorTracking, trackVisitor } from './visitor-tracking';
 
 const SessionContext = createContext<{ session: Session | null; refresh: () => Promise<void> }>({
   session: null,
@@ -99,6 +100,7 @@ function App() {
     <SessionContext.Provider value={{ session, refresh }}>
       <NoticeContext.Provider value={(message, error = false) => setNotice({ message, error })}>
         <BrowserRouter>
+        <VisitorTracking session={session} />
         <PlayerLibraryProvider session={session} key={session?.authenticated ? `${session.username}:${session.csrf}` : 'guest'}>
           <header className="site-header">
             <div className="header-inner">
@@ -570,12 +572,20 @@ function GameFrame({
   const [error, setError] = useState('');
   const [expired, setExpired] = useState(false);
   const [verified, setVerified] = useState(false);
+  const [loadedFrame, setLoadedFrame] = useState('');
+  const lastTrackedFrame = useRef('');
   const loadTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const container = useRef<HTMLDivElement>(null);
   const notice = useNotice();
   const frame = useRef<HTMLIFrameElement>(null);
   const { session } = useContext(SessionContext);
   const bridge = useGameBridge(frame, url, game, session, restart, previewManifest);
+  useEffect(() => {
+    if (!game || !session || loadedFrame !== `${url}-${restart}-${bridge.identity}` || lastTrackedFrame.current === loadedFrame) return;
+    if (session.authenticated && session.role === 'admin') return;
+    lastTrackedFrame.current = loadedFrame;
+    trackVisitor({ kind: 'game_open', path: `/play/${game.id}`, gameId: game.id, version: game.version });
+  }, [game, session, loadedFrame, url, restart, bridge.identity]);
   useEffect(() => {
     const controller = new AbortController();
     setLoading(true);
@@ -671,6 +681,7 @@ function GameFrame({
                   clearTimeout(loadTimer.current);
                   setLoading(false);
                   bridge.onLoad();
+                  setLoadedFrame(`${url}-${restart}-${bridge.identity}`);
                 }}
                 onError={() => {
                   clearTimeout(loadTimer.current);

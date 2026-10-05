@@ -161,6 +161,7 @@ SDK 以版本 1 的 `playroom` postMessage 協定與當前大廳 iframe 連線�
 | `POST /register` | `{username,password}`，建立 `player` 並登入；不接受 `role` |
 | `POST /login` | `{username,password}`，設定 session cookie |
 | `POST /logout` | 登出並撤銷目前 session |
+| `POST /visits` | 平台頁面用：`{requestId,kind,path,gameId?,version?,referrer?}`，kind 為 page_view／game_open；需要正確 Origin，不要求登入或 CSRF，每 IP 每分鐘最多 120 次；遊戲不得直接呼叫 |
 | `GET /me/settings` | 本人設定 `{careerVisibility,otherSessions}`；otherSessions 只計有效的其他 session，不接受指定其他帳號 |
 | `POST /me/settings` | `{careerVisibility}`，值為 public／limited／private，回傳更新後的本人設定 |
 | `POST /me/password` | `{currentPassword,newPassword}`，驗證目前密碼後更新；新密碼 12–256 字元，撤銷全部舊 session 並為本裝置建立新 session，回傳 `{ok:true,session}` |
@@ -176,6 +177,8 @@ SDK 以版本 1 的 `playroom` postMessage 協定與當前大廳 iframe 連線�
 | `POST /runs/:runId/finish` | 大廳用：`{score}`，回傳保存結果 |
 | `GET /admin/overview` | 遊戲、版本、repository 與最近 50 筆匯入紀錄 |
 | `GET /admin/analytics` | 選填 `days=7`（預設）或 `30`；UTC 區間、活躍玩家／開啟／完成／熱門遊戲、成績提交／每日指標、磁碟用量與最近備份狀態；只供管理員 |
+| `GET /admin/visitors` | 選填 `days=7`（預設）或 `30`；訪客、瀏覽、遊戲開啟總數、每日趨勢、國家分佈與前 10 款訪客熱門遊戲；只供管理員 |
+| `GET /admin/visitors/records` | 選填 `days=7`／`30`、`page`、`country`（ISO 國家碼或 unknown）、`ip`、`gameId`、`kind`、`visitor`（完整雜湊）；每頁 25 筆，包含 IP／國家／帳號／頁面／遊戲／來源／User-Agent；只供管理員 |
 | `POST /admin/repositories` | `{fullName:"owner/repository"}` |
 | `GET /admin/repositories/:id/releases` | 最近 100 個 Release 與 game.zip 資訊 |
 | `POST /admin/imports` | `{repositoryId,releaseId}`，回傳 202 與 `jobId` |
@@ -189,7 +192,9 @@ SDK 以版本 1 的 `playroom` postMessage 協定與當前大廳 iframe 連線�
 
 營運指標的期間從 UTC 今天往前 6／29 天的 00:00 起算，至回應產生時間，包含今天；活躍玩家是期間內有開啟、心跳或完成事件的登入帳號，訪客與預覽不納入。熱門遊戲以開啟次數排序，最多 10 款，保留已下架遊戲的歷史活動。成績提交只統計伺服器收到且屬於有效登入 session 的本人局次：2xx 為 `success`、4xx 為 `rejected`、5xx 為 `server_error`；重複提交及重試再次計數，完成局數不重複。`failureRate` 為（拒絕＋伺服器錯誤）／提交次數，沒有提交時為 null；離線或未到達伺服器的失敗不計。指標上線後開始累積，不補算過往失敗。
 
-營運回應的磁碟總容量／可用空間與資料／遊戲檔案用量最多快取 30 秒，讀取失敗回傳 null，介面顯示「未知」；測量不追蹤符號連結。備份狀態為 `never`、`running`、`success` 或 `failed`，只表示平台備份指令記錄的狀態，不驗證備份目的地仍可用。schema v5 備份保留公開範圍設定與營運指標，支援 schema v1–v5 還原；快照中的進行中狀態會轉為 failed 並提醒還原後重新備份。源資料庫在快照、檔案與雜湊清單全部完成後才記錄 success，避免宣稱尚未完成的備份成功。舊平台版本回退需使用升級前備份。
+管理員另可在 `/api/v1/admin/visitors` 與 `/api/v1/admin/visitors/records` 查看匿名及登入玩家的訪客統計和活動明細（UTC 7／30 天）。訪客 Cookie 由平台簽發並以雜湊識別；記錄保留 90 天，國家由伺服器按 IP 的本機 GeoIP 資料推算，未知或內網不強行指定國家。平台頁面負責送出瀏覽及公開遊戲 iframe 載入事件，無 SDK 遊戲亦能記開啟；遊戲本身不得取得訪客 IP／Cookie、直接呼叫 `/api/v1/visits` 或另行提交平台訪客統計。管理員活動及預覽不納入，訪客開啟不代表完成一局或保存帳號成績，亦不改變生涯與成績 API 的權限。
+
+營運回應的磁碟總容量／可用空間與資料／遊戲檔案用量最多快取 30 秒，讀取失敗回傳 null，介面顯示「未知」；測量不追蹤符號連結。備份狀態為 `never`、`running`、`success` 或 `failed`，只表示平台備份指令記錄的狀態，不驗證備份目的地仍可用。schema v6 備份保留公開範圍設定、營運指標與訪客記錄，支援 schema v1–v6 還原；快照中的進行中狀態會轉為 failed 並提醒還原後重新備份。源資料庫在快照、檔案與雜湊清單全部完成後才記錄 success，避免宣稱尚未完成的備份成功。舊平台版本回退需使用升級前備份。
 
 ## 上架驗收
 

@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { api } from './api.js';
 import type { OperationalAnalytics } from '../shared/analytics.js';
 import './admin-analytics.css';
+import { AdminVisitors } from './admin-visitors.js';
 
 const count = (value: number) => value.toLocaleString('zh-Hant');
 function bytes(value: number | null) {
@@ -31,21 +32,23 @@ export function AdminAnalytics() {
   }, [days, refresh]);
   const reload = () => setRefresh((value) => value + 1);
   return <section className="analytics" aria-label="營運概況" aria-busy={loading}>
-    <div className="analytics-heading"><div><h2>營運概況</h2><p>查看遊戲使用情況、成績提交與備份狀態。</p></div>
+    <div className="analytics-heading"><div><h2>營運概況</h2><p>查看訪客來源、遊戲活動、成績提交與備份狀態。</p></div>
       <div className="analytics-controls"><label>統計期間 <select value={days} onChange={(event) => { setDays(Number(event.target.value) as 7 | 30); setData(null); }}>
         <option value={7}>最近 7 天</option><option value={30}>最近 30 天</option>
       </select></label><button type="button" onClick={reload} disabled={loading}>重新整理</button></div>
     </div>
     {loading && <p role="status">正在讀取營運概況…</p>}
     {error && <div role="alert" className="analytics-error"><p>{error}</p><button type="button" onClick={reload}>重試</button></div>}
+    {data && <p className="analytics-note">統計區間：{data.window.start.replace('T', ' ').replace('.000Z', '')} 至 {data.window.end.replace('T', ' ').replace('Z', '')}（UTC）。更新：{date(data.window.generatedAt)}</p>}
+    <AdminVisitors days={days} refresh={refresh} />
     {data && <>
-      <p className="analytics-note">統計區間：{data.window.start.replace('T', ' ').replace('.000Z', '')} 至 {data.window.end.replace('T', ' ').replace('Z', '')}（UTC）。更新：{date(data.window.generatedAt)}</p>
+      <h3>登入玩家與成績</h3>
       <div className="analytics-totals">
         <article><span>活躍玩家</span><strong>{count(data.totals.activePlayers)}</strong></article>
         <article><span>遊戲開啟次數</span><strong>{count(data.totals.opens)}</strong></article>
         <article><span>完成局數</span><strong>{count(data.totals.completedRuns)}</strong></article>
       </div>
-      <p className="analytics-note">只統計登入帳號；活躍玩家指期間內開啟遊戲、回報活躍或完成一局的玩家。訪客與預覽不納入。</p>
+      <p className="analytics-note">以下玩家與成績指標只統計登入帳號；活躍玩家指期間內開啟遊戲、回報活躍或完成一局的玩家。匿名訪客與預覽不納入帳號指標。</p>
       <article className="analytics-panel"><h3>熱門遊戲</h3><p className="analytics-note">按開啟次數排序，最多顯示 10 款；保留下架遊戲的歷史活動。</p>
         {data.games.length ? <div className="analytics-table"><table><thead><tr><th scope="col">遊戲</th><th scope="col">狀態</th><th scope="col">開啟</th><th scope="col">完成局數</th><th scope="col">玩家</th></tr></thead>
           <tbody>{data.games.map((game) => <tr key={game.gameId}><th scope="row">{game.published ? <Link to={`/games/${encodeURIComponent(game.gameId)}`}>{game.name}</Link> : game.name}</th>

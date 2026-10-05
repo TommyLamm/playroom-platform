@@ -146,14 +146,14 @@ test('careers and scores: ownership, idempotency, ranking, rules, activity and r
     await restore(destination, restoredDir);
     const recovered = openStore(restoredDir);
     try {
-      assert.equal(recovered.sqlite.pragma('user_version', { simple: true }), 5);
+      assert.equal(recovered.sqlite.pragma('user_version', { simple: true }), 6);
       for (const table of ['plays', 'runs', 'best_scores']) assert.deepEqual(recovered.sqlite.prepare(`SELECT * FROM ${table} ORDER BY rowid`).all(), store.sqlite.prepare(`SELECT * FROM ${table} ORDER BY rowid`).all());
       assert.equal((recovered.sqlite.prepare('SELECT COUNT(*) n FROM sessions').get() as { n: number }).n, 0);
-      recovered.sqlite.exec('DROP TABLE account_settings; DROP TABLE score_submission_metrics; DROP TABLE operational_state; DROP TABLE favorites; DROP TABLE best_scores; DROP TABLE runs; DROP TABLE plays; PRAGMA user_version=2;');
+      recovered.sqlite.exec('DROP TABLE visitor_events; DROP TABLE account_settings; DROP TABLE score_submission_metrics; DROP TABLE operational_state; DROP TABLE favorites; DROP TABLE best_scores; DROP TABLE runs; DROP TABLE plays; PRAGMA user_version=2;');
     } finally { recovered.sqlite.close(); }
     const upgraded = openStore(restoredDir);
     try {
-      assert.equal(upgraded.sqlite.pragma('user_version', { simple: true }), 5);
+      assert.equal(upgraded.sqlite.pragma('user_version', { simple: true }), 6);
       assert.equal((upgraded.sqlite.prepare('SELECT COUNT(*) n FROM users').get() as { n: number }).n, 2);
     } finally { upgraded.sqlite.close(); }
   });

@@ -76,7 +76,7 @@ export function openStore(dataDir: string) {
   sqlite.pragma('foreign_keys = ON');
   sqlite.pragma('busy_timeout = 5000');
   const version = sqlite.pragma('user_version', { simple: true }) as number;
-  if (version > 5) throw new Error('Database was created by a newer platform version');
+  if (version > 6) throw new Error('Database was created by a newer platform version');
   if (version === 0)
     sqlite.transaction(() => {
       sqlite.exec(`
@@ -163,6 +163,26 @@ export function openStore(dataDir: string) {
         );
         CREATE TABLE operational_state (key TEXT PRIMARY KEY, value TEXT NOT NULL);
         PRAGMA user_version = 5;
+      `);
+    })();
+  if (version <= 5)
+    sqlite.transaction(() => {
+      sqlite.exec(`
+        CREATE TABLE visitor_events (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          visitor_id TEXT NOT NULL, request_id TEXT NOT NULL,
+          occurred_at INTEGER NOT NULL,
+          kind TEXT NOT NULL CHECK(kind IN ('page_view','game_open')),
+          path TEXT NOT NULL, ip TEXT NOT NULL, country TEXT,
+          user_id INTEGER REFERENCES users(id),
+          game_id TEXT REFERENCES games(id), game_name TEXT, game_version TEXT,
+          referrer_host TEXT, user_agent TEXT NOT NULL,
+          UNIQUE(visitor_id, request_id)
+        );
+        CREATE INDEX visitor_events_time ON visitor_events(occurred_at DESC, id DESC);
+        CREATE INDEX visitor_events_visitor ON visitor_events(visitor_id, occurred_at);
+        CREATE INDEX visitor_events_game ON visitor_events(game_id, occurred_at);
+        PRAGMA user_version = 6;
       `);
     })();
   return { sqlite, db: drizzle(sqlite) };

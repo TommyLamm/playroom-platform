@@ -1,5 +1,17 @@
 # 驗證紀錄
 
+## 訪客統計與活動記錄（2026-10-05）
+
+型別檢查、正式 build 與完整 88 項後端／SDK／工具測試通過。既有 Playwright 回歸測試 20 個桌面／手機情境通過，另 2 個依既有 viewport 設定跳過。完整及 production npm audit 均為 0 個已知漏洞。
+
+訪客後端涵蓋匿名及登入活動串連、Cookie 去重與重試冪等、伺服器取得 IP、IPv4／IPv6 國家推算、內網未知、可信代理與偽造 forwarding／國家欄位、管理員查閱限制、Origin、嚴格事件與篩選輸入、排除管理員／預覽、已發布版本限制及下架歷史、UTC 7／30 天區間、確定排序與分頁、每 IP 限流、90 天清理與 Secure host-only Cookie。schema v5→v6 保留帳號及遊戲，新版備份還原完整保留訪客事件；既有 v1–v4 migration／備份相容測試通過。
+
+另外以 Playwright CLI 在臨時資料庫實測訪客從大廳、詳情進入遊戲，僅記一筆開啟，登入管理員後排除活動；模擬訪客 API 503，仍可重新載入並開始遊戲。第二個訪客經測試代理 IP 顯示美國，後台國家／IP／遊戲／活動組合篩選只返回相符開啟事件；38 筆記錄分為 25／13 筆兩頁，點選訪客可篩選同一瀏覽器。7／30 天切換正常，匿名直接讀取活動 API 回覆 401。
+
+1440px 桌面與 390px 手機截圖已檢視；手機 document scrollWidth 為 390px，表格在區塊內橫向捲動。CLI 截圖保存在 `output/playwright/visitors-desktop.png`、`output/playwright/visitors-mobile.png` 與 `output/playwright/visitors-mobile-filtered.png`。開發指南及遊戲 Agent 範本已同步，線上規格連結仍追蹤 main。
+
+訪客資料從功能上線後累積，不回補舊匿名活動；國家為 IP 推算，開啟不代表完成局次。記錄自動保留 90 天，備份另保留當時快照。GeoIP 資料庫需隨套件更新／重建部署，依賴的舊 ip-address 已覆寫為修正版 10.7.3。本次未部署、推送或修改正式資料。
+
 ## 帳號設定與營運概況（2026-10-05）
 
 型別檢查、正式 build 與完整 79 項後端／SDK／工具測試通過。完整 Playwright 執行後，修正新增營運測試未等登入完成與登出後頁面判斷錯誤，受影響的桌面／手機情境重跑通過；合計 20 個情境通過、2 個依既有 viewport 設定跳過。
