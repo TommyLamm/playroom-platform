@@ -6,6 +6,7 @@ import type { Store } from './db.js';
 import type { Config } from './config.js';
 import type { OperationalAnalytics } from '../shared/analytics.js';
 import { readBackupState } from './operational-state.js';
+import { hasPermission } from '../shared/account.js';
 
 async function directoryBytes(root: string): Promise<number | null> {
   try {
@@ -99,6 +100,6 @@ export function registerAnalytics(platform: FastifyInstance, store: Store, confi
     return { window: { days: Number(days) as 7 | 30, start: new Date(start).toISOString(), end: generatedAt.toISOString(), generatedAt: generatedAt.toISOString(), timezone: 'UTC' },
       totals: { activePlayers, opens, completedRuns }, games: games.map((g) => ({ ...g, published: !!g.published })),
       submissions: { success, rejected, serverError, attempts, failureRate: attempts ? (rejected + serverError) / attempts : null, daily },
-      storage: await storage(), backup: readBackupState(sql) };
+      ...(request.userRole && hasPermission(request.userRole, 'platform.manage') ? { storage: await storage(), backup: readBackupState(sql) } : {}) };
   });
 }

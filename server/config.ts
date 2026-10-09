@@ -25,6 +25,7 @@ export function getConfig(overrides: Partial<Config> = {}): Config {
     gamesPort: Number(process.env.GAMES_PORT || 3001),
     host: process.env.BIND_HOST || '127.0.0.1',
     githubToken: process.env.GITHUB_TOKEN || '',
+    releaseCheckIntervalSeconds: Number(process.env.GAME_RELEASE_CHECK_INTERVAL_SECONDS || 3600),
     updaterUrl: process.env.UPDATER_URL || '',
     updaterToken: process.env.UPDATER_TOKEN || '',
     commit: process.env.APP_COMMIT || 'development',
@@ -43,6 +44,7 @@ export function getConfig(overrides: Partial<Config> = {}): Config {
     throw new Error('Production requires HTTPS for both origins');
   z.number().int().min(1).max(65535).parse(config.platformPort);
   z.number().int().min(1).max(65535).parse(config.gamesPort);
+  z.number().int().min(1).max(2147483).parse(config.releaseCheckIntervalSeconds);
   return config;
 }
 
@@ -54,6 +56,7 @@ export type Config = {
   gamesPort: number;
   host: string;
   githubToken: string;
+  releaseCheckIntervalSeconds: number;
   updaterUrl: string;
   updaterToken: string;
   commit: string;

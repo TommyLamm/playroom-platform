@@ -33,6 +33,8 @@ export type StoredVersion = {
   releaseTag: string | null;
   importedAt: string;
   publishedAt: string | null;
+  reviewedBy: string | null;
+  reviewedAt: string | null;
 };
 export type AdminGame = {
   id: string;

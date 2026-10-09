@@ -1,3 +1,4 @@
+import { selectAdminPage } from './helpers/admin';
 import { test, expect } from '@playwright/test';
 
 test('players register, sign in and stay outside the admin workspace', async ({
@@ -125,7 +126,7 @@ test('admin imports releases, previews, publishes, rolls back and unpublishes', 
   await page.getByLabel('帳號', { exact: true }).fill('admin');
   await page.getByLabel('密碼', { exact: true }).fill('e2e-only-password');
   await page.getByRole('button', { name: '登入', exact: true }).click();
-  await expect(page.getByRole('heading', { name: '遊戲管理', exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: '遊戲更新', level: 1, exact: true })).toBeVisible();
   await expect(
     page.locator('.site-header nav').getByRole('link', { name: '管理後台' }),
   ).toBeVisible();
@@ -133,17 +134,18 @@ test('admin imports releases, previews, publishes, rolls back and unpublishes', 
   expect(cookies.find((c) => c.name.includes('playroom'))).toBeUndefined();
   await page.getByRole('button', { name: '匯入遊戲', exact: true }).first().click();
   await page.getByRole('textbox', { name: 'Repository', exact: true }).fill('example/game');
-  await page.getByRole('button', { name: '加入來源' }).click();
+  await page.getByRole('dialog', { name: '從 GitHub 匯入', exact: true }).getByRole('button', { name: '加入來源', exact: true }).click();
   await page.getByRole('button', { name: '確認版本', exact: true }).click();
   await page.getByRole('radio').first().check();
   await page.getByRole('button', { name: '匯入此版本' }).click();
-  await expect(page.getByRole('dialog').getByText('已匯入', { exact: true })).toBeVisible();
-  await page.getByRole('dialog').getByRole('button', { name: '關閉', exact: true }).click();
-  await page.getByRole('button', { name: '遊戲與版本' }).click();
-  let row = page.locator('.admin-game').filter({ hasText: '測試光點' });
+  await expect(page.getByRole('dialog', { name: '從 GitHub 匯入', exact: true }).getByText('已匯入', { exact: true })).toBeVisible();
+  await page.getByRole('dialog', { name: '從 GitHub 匯入', exact: true }).getByRole('button', { name: '關閉', exact: true }).click();
+  await selectAdminPage(page, '遊戲與版本');
+  await page.getByRole('button', { name: '管理版本 測試光點', exact: true }).click();
+  let row = page.locator('.game-version-panel');
   await row.getByRole('button', { name: '預覽', exact: true }).click();
   await expect(page.frameLocator('iframe').locator('#start')).toBeVisible();
-  await page.getByRole('dialog').getByRole('button', { name: '關閉', exact: true }).click();
+  await page.getByRole('dialog', { name: '遊戲預覽', exact: true }).getByRole('button', { name: '確認通過', exact: true }).click();
   expect((await (await page.request.get('/api/v1/players/admin/career')).json()).totals.opens).toBe(0);
   await row.getByRole('button', { name: '發布', exact: true }).click();
   await page.getByRole('button', { name: '確認', exact: true }).click();
@@ -158,20 +160,25 @@ test('admin imports releases, previews, publishes, rolls back and unpublishes', 
   expect(unsupportedCareer.totals.opens).toBe(1);
   expect(unsupportedCareer.totals.completedRuns).toBe(0);
   await unsupported.close();
+  await page.getByRole('dialog', { name: '管理版本 · 測試光點', exact: true }).getByRole('button', { name: '關閉', exact: true }).click();
   await page.getByRole('button', { name: '匯入遊戲', exact: true }).click();
   await page.getByRole('checkbox', { name: '匯入 example/game', exact: true }).check();
   await page.getByRole('button', { name: '確認版本', exact: true }).click();
   await page.getByRole('radio').nth(1).check();
   await page.getByRole('button', { name: '匯入此版本' }).click();
-  await expect(page.getByRole('dialog').getByText('已匯入', { exact: true })).toBeVisible();
-  await page.getByRole('dialog').getByRole('button', { name: '關閉', exact: true }).click();
-  await page.getByRole('button', { name: '遊戲與版本' }).click();
-  row = page.locator('.admin-game').filter({ hasText: '測試光點' });
-  await row.getByRole('combobox').selectOption('2.0.0');
+  await expect(page.getByRole('dialog', { name: '從 GitHub 匯入', exact: true }).getByText('已匯入', { exact: true })).toBeVisible();
+  await page.getByRole('dialog', { name: '從 GitHub 匯入', exact: true }).getByRole('button', { name: '關閉', exact: true }).click();
+  await selectAdminPage(page, '遊戲與版本');
+  await page.getByRole('button', { name: '管理版本 測試光點', exact: true }).click();
+  row = page.locator('.game-version-panel');
+  await row.getByRole('radio', { name: 'v2.0.0', exact: true }).check();
+  await row.getByRole('button', { name: '預覽', exact: true }).click();
+  await expect(page.frameLocator('iframe').locator('#start')).toBeVisible();
+  await page.getByRole('dialog', { name: '遊戲預覽', exact: true }).getByRole('button', { name: '確認通過', exact: true }).click();
   await row.getByRole('button', { name: '發布', exact: true }).click();
   await page.getByRole('button', { name: '確認', exact: true }).click();
   await expect(row.getByRole('button', { name: '下架', exact: true })).toBeVisible();
-  await row.getByRole('combobox').selectOption('1.0.0');
+  await row.getByRole('radio', { name: 'v1.0.0', exact: true }).check();
   await row.getByRole('button', { name: '回退到此版本' }).click();
   await page.getByRole('button', { name: '確認', exact: true }).click();
   await expect(row.getByRole('button', { name: '下架', exact: true })).toBeVisible();
@@ -179,6 +186,7 @@ test('admin imports releases, previews, publishes, rolls back and unpublishes', 
   await row.getByRole('button', { name: '下架', exact: true }).click();
   await page.getByRole('button', { name: '確認', exact: true }).click();
   await expect(row.getByText('未上架', { exact: true })).toBeVisible();
+  await page.getByRole('dialog', { name: '管理版本 · 測試光點', exact: true }).getByRole('button', { name: '關閉', exact: true }).click();
   await page.getByRole('button', { name: '登出', exact: true }).click();
   await expect(page.getByRole('heading', { name: '歡迎回來' })).toBeVisible();
 });
@@ -189,19 +197,15 @@ test('admin remains usable at narrow widths', async ({ page }, testInfo) => {
   await page.getByLabel('帳號', { exact: true }).fill('admin');
   await page.getByLabel('密碼', { exact: true }).fill('e2e-only-password');
   await page.getByRole('button', { name: '登入', exact: true }).click();
-  await expect(page.locator('.admin-game').first()).toBeVisible();
+  await selectAdminPage(page, '遊戲與版本');
+  await expect(page.locator('.admin-games-table tbody tr').first()).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await page.screenshot({ path: 'artifacts/admin-mobile.png', fullPage: true });
-  await page.getByRole('button', { name: '遊戲來源', exact: true }).click();
-  await expect(page.locator('.source-table tbody tr').first()).toBeVisible();
-  // Page overflow alone cannot catch a desktop-width table clipped inside its
-  // scroll container: the mobile cards and their values must fit that container.
-  expect(await page.locator('.source-table').evaluate((table) =>
-    table.getBoundingClientRect().width <= table.parentElement!.clientWidth,
-  )).toBe(true);
-  await page.getByRole('checkbox', { name: '選取 example/game', exact: true }).check();
-  await expect(page.getByRole('button', { name: '匯入選取項目', exact: true })).toBeVisible();
-  await page.getByRole('button', { name: '匯入選取項目', exact: true }).click();
+  await selectAdminPage(page, /^遊戲更新/);
+  await page.getByLabel('更新狀態', { exact: true }).selectOption('all');
+  await expect(page.locator('.game-update-table tbody tr').first()).toBeVisible();
+  expect(await page.locator('.game-update-table').evaluate((table) => table.getBoundingClientRect().width <= table.parentElement.clientWidth)).toBe(true);
+  await page.locator('.game-update-table tbody tr').filter({ hasText: 'example/game' }).getByRole('button', { name: '選其他 Release', exact: true }).click();
   await expect(page.getByRole('dialog')).toBeVisible();
   const bounds = await page.getByRole('dialog').boundingBox();
   expect(bounds!.x).toBeGreaterThanOrEqual(0);

@@ -1,4 +1,5 @@
-// Copy this module into your game ZIP. No platform credentials are sent to games.
+// Copy this ES module into your game ZIP and import it with a relative path.
+// No platform credentials are sent to games. Network failures must not block play.
 const pending = new Map();
 let connection = null;
 let parentOrigin = null;
@@ -49,8 +50,11 @@ async function request(method, payload) {
   });
 }
 export const Playroom = {
+  // available controls account-save UI; still call start/finish in diagnostic preview.
   ready: () => readiness,
+  // Returns {runId} or null. Preview diagnostic IDs are temporary, never account runs.
   startRun: () => request('startRun', {}),
+  // Only {saved:true} proves a save. Null is unsaved; errors reject the Promise.
   finishRun: async ({ runId, score }) => {
     const result = await request('finishRun', { runId, score });
     return mode === 'preview' ? null : result;

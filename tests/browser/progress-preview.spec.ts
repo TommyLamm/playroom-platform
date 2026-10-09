@@ -1,3 +1,4 @@
+import { selectAdminPage } from './helpers/admin';
 import { test, expect } from '@playwright/test';
 
 test('private career trends mark breakthroughs and show the next leaderboard target', async ({ page, browser }, info) => {
@@ -97,7 +98,9 @@ test('admin preview diagnoses SDK runs and errors without saving account records
   await page.getByLabel('帳號', { exact: true }).fill('admin');
   await page.getByLabel('密碼', { exact: true }).fill('e2e-only-password');
   await page.getByRole('button', { name: '登入', exact: true }).click();
-  const row = page.locator('.admin-game').filter({ hasText: '光點反應' });
+  await selectAdminPage(page, '遊戲與版本');
+  await page.getByRole('button', { name: '管理版本 光點反應', exact: true }).click();
+  const row = page.locator('.game-version-panel');
   await expect(row).toBeVisible();
   const before = await (await page.request.get('/api/v1/players/admin/career')).json();
   let recordWrites = 0;
@@ -140,7 +143,7 @@ test('admin preview diagnoses SDK runs and errors without saving account records
   await page.screenshot({ path: `artifacts/sdk-preview-${info.project.name}.png`, fullPage: true });
   await panel.getByRole('button', { name: '清除事件', exact: true }).click();
   await expect(panel).not.toContainText('finishRun：1 分');
-  await page.getByRole('dialog').getByRole('button', { name: '重新開始', exact: true }).click();
+  await page.getByRole('dialog', { name: '遊戲預覽', exact: true }).getByRole('button', { name: '重新開始', exact: true }).click();
   await expect(panel).toContainText('SDK 已連線');
   await expect(panel).not.toContainText('分數超出');
   expect(recordWrites).toBe(0);

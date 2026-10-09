@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  Archive,
   ArrowLeft,
   ArrowRight,
   Check,
@@ -100,7 +99,7 @@ function useSources() {
   );
   return { sources, loaded, error, reload, update };
 }
-async function limited<T>(items: T[], run: (item: T) => Promise<void>, signal?: AbortSignal) {
+export async function limited<T>(items: T[], run: (item: T) => Promise<void>, signal?: AbortSignal) {
   let index = 0;
   await Promise.all(
     Array.from({ length: Math.min(3, items.length) }, async () => {
@@ -179,346 +178,6 @@ function RepoName({ fullName }: { fullName: string }) {
       {fullName}
       <ExternalLink size={12} />
     </a>
-  );
-}
-
-export function SourcesPanel({
-  onImport,
-  onChanged,
-}: {
-  onImport: (ids: number[]) => void;
-  onChanged: () => void;
-}) {
-  const { sources, loaded, error, reload, update } = useSources();
-  const [query, setQuery] = useState('');
-  const [owner, setOwner] = useState('');
-  const [status, setStatus] = useState('');
-  const [page, setPage] = useState(1);
-  const [selected, setSelected] = useState<number[]>([]);
-  const [adding, setAdding] = useState(false);
-  const [busy, setBusy] = useState(false);
-  const [actionError, setActionError] = useState('');
-  const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
-  const task = useRef<AbortController | null>(null);
-  useEffect(() => () => task.current?.abort(), []);
-  useEffect(() => {
-    if (!sources.some((s) => s.status === 'importing')) return;
-    const timer = setInterval(() => void reload(), 3000);
-    return () => clearInterval(timer);
-  }, [sources, reload]);
-  useEffect(() => {
-    setPage(1);
-    setSelected([]);
-  }, [query, owner, status]);
-  const filtered = sources.filter(
-    (s) =>
-      (status === 'archived' ? s.archived : !s.archived) &&
-      (!owner || s.fullName.split('/')[0] === owner) &&
-      (!status || status === 'archived' || s.status === status) &&
-      `${s.fullName} ${s.gameName || ''}`.toLowerCase().includes(query.toLowerCase()),
-  );
-  const shownPage = Math.min(page, Math.max(1, Math.ceil(filtered.length / 25)));
-  const rows = filtered.slice((shownPage - 1) * 25, shownPage * 25);
-  const toggle = (id: number) =>
-    setSelected((ids) => (ids.includes(id) ? ids.filter((v) => v !== id) : [...ids, id]));
-  async function check(ids: number[]) {
-    setBusy(true);
-    setActionError('');
-    setProgress({ done: 0, total: ids.length });
-    const controller = new AbortController();
-    task.current = controller;
-    await limited(
-      ids,
-      async (id) => {
-        try {
-          const { source } = await api<{ source: Source }>(
-            `/admin/repositories/${id}/check`,
-            {},
-            { signal: controller.signal },
-          );
-          update(source);
-        } catch (e) {
-          if (!controller.signal.aborted) setActionError((e as Error).message);
-        }
-        if (!controller.signal.aborted) setProgress((p) => p && { ...p, done: p.done + 1 });
-      },
-      controller.signal,
-    );
-    if (!controller.signal.aborted) {
-      setBusy(false);
-      onChanged();
-    }
-  }
-  async function archive(ids: number[], archived: boolean) {
-    setBusy(true);
-    setActionError('');
-    await limited(ids, async (id) => {
-      try {
-        await api(`/admin/repositories/${id}/state`, { archived });
-      } catch (e) {
-        setActionError((e as Error).message);
-      }
-    });
-    setSelected([]);
-    await reload();
-    onChanged();
-    setBusy(false);
-  }
-  return (
-    <section className="sources-panel">
-      <div className="source-heading">
-        <div>
-          <h2>遊戲來源</h2>
-          <p>集中管理開發者的 GitHub 遊戲，批量加入及匯入 Release。</p>
-        </div>
-        <div className="source-actions">
-          <button
-            className="button"
-            disabled={busy || !sources.some((s) => !s.archived)}
-            onClick={() => void check(sources.filter((s) => !s.archived).map((s) => s.id))}
-          >
-            <RefreshCw size={16} />
-            檢查全部
-          </button>
-          <button className="button primary" disabled={busy} onClick={() => setAdding(!adding)}>
-            <Plus size={16} />
-            加入來源
-          </button>
-        </div>
-      </div>
-      {adding && (
-        <div className="source-add-panel">
-          <div className="source-heading">
-            <h3>加入遊戲來源</h3>
-            <button
-              className="icon-button"
-              aria-label="關閉加入來源"
-              onClick={() => setAdding(false)}
-            >
-              <X size={16} />
-            </button>
-          </div>
-          <AddSources
-            known={sources}
-            onAdded={async () => {
-              await reload();
-              onChanged();
-            }}
-          />
-        </div>
-      )}
-      <ErrorNote error={error} retry={() => void reload()} />
-      <ErrorNote error={actionError} />
-      <div className="source-filters">
-        <SearchInput value={query} onChange={setQuery} />
-        <select aria-label="開發者篩選" value={owner} onChange={(e) => setOwner(e.target.value)}>
-          <option value="">全部開發者</option>
-          {[...new Set(sources.map((s) => s.fullName.split('/')[0]))].sort().map((v) => (
-            <option key={v}>{v}</option>
-          ))}
-        </select>
-        <select aria-label="來源狀態" value={status} onChange={(e) => setStatus(e.target.value)}>
-          <option value="">全部使用中</option>
-          {[
-            'available',
-            'unchecked',
-            'current',
-            'unavailable',
-            'error',
-            'importing',
-            'archived',
-          ].map((v) => (
-            <option value={v} key={v}>
-              {v === 'archived' ? '已封存' : labels[v]}
-            </option>
-          ))}
-        </select>
-      </div>
-      {progress && (
-        <div className="source-check-progress" role="status">
-          {busy ? <LoaderCircle className="spin" size={14} /> : <Check size={14} />}已檢查{' '}
-          {progress.done} / {progress.total}
-        </div>
-      )}
-      {!!rows.length && (
-        <div className="source-pick-tools">
-          <button
-            className="button small"
-            disabled={busy}
-            onClick={() => setSelected((ids) => [...new Set([...ids, ...rows.map((r) => r.id)])])}
-          >
-            選取本頁
-          </button>
-        </div>
-      )}
-      {!!selected.length && (
-        <div className="source-selection-bar">
-          <strong>已選 {selected.length} 個來源</strong>
-          <div className="source-actions">
-            <button className="button small" disabled={busy} onClick={() => setSelected([])}>
-              取消選取
-            </button>
-            {status === 'archived' ? (
-              <button
-                className="button small"
-                disabled={busy}
-                onClick={() => void archive(selected, false)}
-              >
-                恢復來源
-              </button>
-            ) : (
-              <>
-                <button
-                  className="button small"
-                  disabled={busy}
-                  onClick={() => void check(selected)}
-                >
-                  <RefreshCw size={14} />
-                  檢查 Release
-                </button>
-                <button
-                  className="button small"
-                  disabled={busy}
-                  onClick={() => void archive(selected, true)}
-                >
-                  <Archive size={14} />
-                  封存
-                </button>
-                <button
-                  className="button primary small"
-                  disabled={busy || selected.length > 100}
-                  onClick={() => onImport(selected)}
-                >
-                  <Download size={14} />
-                  匯入選取項目
-                </button>
-              </>
-            )}
-          </div>
-          {selected.length > 100 && <span>每批最多 100 款，請減少選取項目。</span>}
-        </div>
-      )}
-      {!loaded && !error ? (
-        <Busy text="正在載入來源" />
-      ) : (
-        <>
-          <div className="source-table-wrap">
-            <table className="source-table">
-              <thead>
-                <tr>
-                  <th>
-                    <input
-                      type="checkbox"
-                      aria-label="選取本頁來源"
-                      disabled={busy || !rows.length}
-                      checked={!!rows.length && rows.every((r) => selected.includes(r.id))}
-                      onChange={(e) =>
-                        setSelected((ids) =>
-                          e.target.checked
-                            ? [...new Set([...ids, ...rows.map((r) => r.id)])]
-                            : ids.filter((id) => !rows.some((r) => r.id === id)),
-                        )
-                      }
-                    />
-                  </th>
-                  <th>遊戲 / Repository</th>
-                  <th>開發者</th>
-                  <th>已匯入版本</th>
-                  <th>可匯入 Release</th>
-                  <th>狀態</th>
-                  <th>操作</th>
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map((source) => (
-                  <tr key={source.id}>
-                    <td>
-                      <input
-                        type="checkbox"
-                        aria-label={`選取 ${source.fullName}`}
-                        checked={selected.includes(source.id)}
-                        disabled={busy}
-                        onChange={() => toggle(source.id)}
-                      />
-                    </td>
-                    <td data-label="遊戲 / Repository">
-                      <strong>{source.gameName || source.fullName.split('/')[1]}</strong>
-                      <RepoName fullName={source.fullName} />
-                    </td>
-                    <td data-label="開發者">{source.fullName.split('/')[0]}</td>
-                    <td data-label="已匯入版本">
-                      {source.importedVersion ? `v${source.importedVersion}` : '尚未匯入'}
-                    </td>
-                    <td data-label="可匯入 Release">
-                      {defaultRelease(source.releases, source.importedReleaseIds)?.tag || '—'}
-                    </td>
-                    <td data-label="狀態">
-                      <span
-                        className={`badge ${source.status === 'available' ? 'green' : 'neutral'}`}
-                      >
-                        {source.archived ? '已封存' : labels[source.status]}
-                      </span>
-                      <small>
-                        {source.checkedAt
-                          ? `檢查於 ${date(source.checkedAt)}`
-                          : '按「檢查 Release」取得版本'}
-                        {source.checkError && (
-                          <span className="source-inline-error">{source.checkError}</span>
-                        )}
-                      </small>
-                    </td>
-                    <td data-label="操作">
-                      <div className="source-actions">
-                        {source.archived ? (
-                          <button
-                            className="button small"
-                            disabled={busy}
-                            onClick={() => void archive([source.id], false)}
-                          >
-                            恢復
-                          </button>
-                        ) : (
-                          <>
-                            <button
-                              className="icon-button"
-                              title="檢查 Release"
-                              aria-label={`檢查 ${source.fullName}`}
-                              disabled={busy}
-                              onClick={() => void check([source.id])}
-                            >
-                              <RefreshCw size={15} />
-                            </button>
-                            <button
-                              className="button small"
-                              disabled={busy}
-                              onClick={() => onImport([source.id])}
-                            >
-                              選版本
-                            </button>
-                          </>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          {!rows.length && (
-            <div className="source-empty">
-              <Github size={28} />
-              <h3>{sources.length ? '沒有符合條件的來源' : '讓遊戲來源井然有序'}</h3>
-              <p>
-                {sources.length
-                  ? '調整搜尋或篩選條件。'
-                  : '加入開發者帳號，再勾選想匯入的 repositories。'}
-              </p>
-            </div>
-          )}
-          <Pager page={shownPage} count={filtered.length} onPage={setPage} />
-        </>
-      )}
-    </section>
   );
 }
 
@@ -958,10 +617,12 @@ export function AddSources({
 
 export function ImportWorkspace({
   initialIds = [],
+  initialSelections,
   onChanged,
   onPreview,
 }: {
   initialIds?: number[];
+  initialSelections?: ImportSelection[];
   onChanged: () => void;
   onPreview: (gameId: string, version: string) => void;
 }) {
@@ -1016,7 +677,11 @@ export function ImportWorkspace({
   useEffect(() => {
     if (!loaded || initialized.current) return;
     initialized.current = true;
-    if (initialIds.length) void prepare(initialIds);
+    if (initialSelections?.length) {
+      setSelected(initialSelections.map((item) => item.repositoryId));
+      setChoices(Object.fromEntries(initialSelections.map((item) => [item.repositoryId, item.releaseId])));
+      setStep(2);
+    } else if (initialIds.length) void prepare(initialIds);
     else if (!activeSources.length) setAdding(true);
   }, [loaded]);
   async function submit(items: ImportSelection[]) {

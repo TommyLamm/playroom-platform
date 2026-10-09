@@ -101,11 +101,7 @@
         }
       },
       "required": [
-        "id",
-        "order",
-        "unit",
-        "minScore",
-        "maxScore"
+        "id"
       ],
       "additionalProperties": false
     }
@@ -125,5 +121,5 @@
   ],
   "additionalProperties": false,
   "title": "PLAYROOM Game Manifest v1",
-  "description": "Manifest structure. Run game:validate for archive, portable path and referenced-file checks."
+  "description": "Manifest input structure; defaults are applied by the platform validator. Run game:validate for score-range, archive, portable path and referenced-file checks."
 }

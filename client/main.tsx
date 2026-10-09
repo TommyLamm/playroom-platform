@@ -36,8 +36,8 @@ import {
   LoaderCircle,
   LogOut,
   Maximize,
+  Menu,
   Monitor,
-  Pause,
   Play,
   Plus,
   RefreshCw,
@@ -46,7 +46,6 @@ import {
   ShieldCheck,
   Smartphone,
   Sparkles,
-  Upload,
   UserRound,
   UserPlus,
   LogIn,
@@ -56,6 +55,7 @@ import {
 } from 'lucide-react';
 import type { AdminGame, ImportJob, PublicGame, Repository } from '../shared/types';
 import type { Session } from '../shared/account';
+import { canAccessAdmin, hasPermission, roleLabels } from '../shared/account';
 import type { UpdateStatus } from '../shared/update';
 import { api, ApiError, setCsrf } from './api';
 import './styles.css';
@@ -65,9 +65,20 @@ import type { GameManifest } from '../shared/manifest';
 import { CareerPage, LeaderboardPanel } from './career';
 import { FavoriteButton, LibraryError, PlayerLibraryProvider, PlayerLibrarySections } from './player-library';
 import { AccountSettingsPage } from './account-settings';
-import { AdminAnalytics } from './admin-analytics';
 import { VisitorTracking, trackVisitor } from './visitor-tracking';
-import { SourcesPanel, ImportWorkspace, ImportBatches } from './admin-sources';
+import { ImportWorkspace, ImportBatches } from './admin-sources';
+import { AdminAccounts } from './admin-accounts';
+import { Dialog } from './dialog';
+import { GameUpdatesPanel } from './admin-game-updates';
+import { type SourceCheck } from '../shared/game-updates';
+import type { Source, ImportSelection } from '../shared/sources';
+import { AdminGames } from './admin-games';
+import { updateRows, isPendingUpdate } from './game-update-model';
+import './admin-workspace.css';
+import './lobby.css';
+import './analytics-workspace.css';
+
+const AdminAnalytics = React.lazy(async () => ({ default: (await import('./admin-analytics')).AdminAnalytics }));
 
 const SessionContext = createContext<{ session: Session | null; refresh: () => Promise<void> }>({
   session: null,
@@ -118,7 +129,7 @@ function App() {
                   <Grid2X2 size={16} />
                   <span>遊戲大廳</span>
                 </NavLink>
-                {session?.authenticated && session.role === 'admin' && (
+                {session?.authenticated && canAccessAdmin(session.role) && (
                   <NavLink to="/admin">
                     <Settings2 size={16} />
                     <span>管理後台</span>
@@ -224,7 +235,7 @@ function AccountNav() {
         <div className="account-dropdown">
           <div className="account-info">
             <strong>{session.username}</strong>
-            <span>{session.role === 'admin' ? '管理員' : '普通玩家'}</span>
+            <span>{roleLabels[session.role]}</span>
           </div>
           <Link to={`/players/${encodeURIComponent(session.username)}`}
             onClick={(event) => event.currentTarget.closest('details')?.removeAttribute('open')}>
@@ -234,7 +245,7 @@ function AccountNav() {
             onClick={(event) => event.currentTarget.closest('details')?.removeAttribute('open')}>
             <Settings2 size={16} />帳號設定
           </Link>
-          {session.role === 'admin' && (
+          {canAccessAdmin(session.role) && (
             <Link
               to="/admin"
               onClick={(event) => event.currentTarget.closest('details')?.removeAttribute('open')}
@@ -335,22 +346,24 @@ function Lobby() {
     );
   return (
     <main className="page lobby">
-      <section className="page-intro">
+      <section className="page-intro lobby-welcome">
         <div>
           <div className="eyebrow">
-            <span className="tiny-square" /> THE LITTLE GAME COLLECTION
+            <Gamepad2 size={14} /> PLAYROOM · 遊戲大廳
           </div>
           <h1>今天，玩點什麼？</h1>
           <p>一局小遊戲，一段剛剛好的休息。</p>
+          <div className="lobby-welcome-tags"><span><Monitor size={14} />電腦與手機，隨時開玩</span><span><Sparkles size={14} />發現你的下一款最愛</span></div>
         </div>
         <div className="collection-count">
-          <Gamepad2 size={22} />
-          <strong>{String(games?.length || 0).padStart(2, '0')}</strong>
-          <span>款遊戲，隨時開玩</span>
+          <span className="lobby-collection-icon"><Gamepad2 size={38} strokeWidth={1.5} /></span>
+          <div><strong>{games ? games.length : '—'}</strong><span>款遊戲等你探索</span></div>
+          <span className="lobby-collection-note">挑一款，享受一點遊戲時光。</span>
         </div>
       </section>
       <PlayerLibrarySections games={games} />
-      <section aria-label="遊戲目錄">
+      <section aria-label="遊戲目錄" className="lobby-catalog">
+        <div className="lobby-catalog-heading"><div><h2>探索遊戲</h2><p>從熟悉的玩法，到意想不到的小樂趣。</p></div><span><Grid2X2 size={15} />遊戲收藏館</span></div>
         <div className="catalog-toolbar">
           <div className="filter-tabs" aria-label="遊戲分類">
             {['全部遊戲', ...tags].map((t) => (
@@ -399,7 +412,7 @@ function Lobby() {
           <Spinner />
         ) : !games.length ? (
           <Empty title="第一款遊戲，等你上架" text="遊戲集合即將開始。">
-            {session?.authenticated && session.role === 'admin' && (
+            {session?.authenticated && canAccessAdmin(session.role) && (
               <Link className="button primary" to="/admin">
                 <Plus size={17} />
                 前往管理後台
@@ -432,7 +445,7 @@ function Lobby() {
                   <span className="art-play">
                     <Play size={22} fill="currentColor" />
                   </span>
-                  <span className="game-index">{String(i + 1).padStart(2, '0')}</span>
+                  <span className="game-index"><Play size={10} fill="currentColor" />隨時開玩</span>
                 </div>
                 <div className="game-card-body">
                   <div className="card-tags">
@@ -583,7 +596,7 @@ function GameFrame({
   const bridge = useGameBridge(frame, url, game, session, restart, previewManifest);
   useEffect(() => {
     if (!game || !session || loadedFrame !== `${url}-${restart}-${bridge.identity}` || lastTrackedFrame.current === loadedFrame) return;
-    if (session.authenticated && session.role === 'admin') return;
+    if (session.authenticated && canAccessAdmin(session.role)) return;
     lastTrackedFrame.current = loadedFrame;
     trackVisitor({ kind: 'game_open', path: `/play/${game.id}`, gameId: game.id, version: game.version });
   }, [game, session, loadedFrame, url, restart, bridge.identity]);
@@ -747,44 +760,6 @@ function PlayPage() {
   );
 }
 
-function Dialog({
-  title,
-  children,
-  onClose,
-  wide = false,
-}: {
-  title: string;
-  children: ReactNode;
-  onClose: () => void;
-  wide?: boolean;
-}) {
-  const ref = useRef<HTMLDialogElement>(null);
-  useEffect(() => {
-    ref.current?.showModal();
-    const dialog = ref.current;
-    return () => dialog?.close();
-  }, []);
-  return (
-    <dialog
-      ref={ref}
-      className={`dialog ${wide ? 'wide' : ''}`}
-      onCancel={onClose}
-      onClick={(e) => {
-        if (e.target === ref.current) onClose();
-      }}
-      aria-label={title}
-    >
-      <div className="dialog-heading">
-        <h2>{title}</h2>
-        <button className="icon-button" title="關閉" onClick={onClose}>
-          <X size={20} />
-        </button>
-      </div>
-      {children}
-    </dialog>
-  );
-}
-
 function AuthPage({ register = false, admin = false }: { register?: boolean; admin?: boolean }) {
   const { session, refresh } = useContext(SessionContext);
   const navigate = useNavigate();
@@ -810,7 +785,7 @@ function AuthPage({ register = false, admin = false }: { register?: boolean; adm
       });
       await refresh();
       notice(register ? '帳號已建立，歡迎加入！' : '登入成功');
-      navigate(admin && result.authenticated && result.role === 'admin' ? '/admin' : '/', {
+      navigate(admin && result.authenticated && canAccessAdmin(result.role) ? '/admin' : '/', {
         replace: true,
       });
     } catch (e) {
@@ -820,7 +795,7 @@ function AuthPage({ register = false, admin = false }: { register?: boolean; adm
     }
   }
   if (session?.authenticated)
-    return <Navigate to={admin && session.role === 'admin' ? '/admin' : '/'} replace />;
+    return <Navigate to={admin && canAccessAdmin(session.role) ? '/admin' : '/'} replace />;
   if (!session)
     return (
       <main className="page">
@@ -967,11 +942,34 @@ const phaseNames: Record<string, string> = {
 
 function Admin() {
   const { session, refresh } = useContext(SessionContext);
+  useEffect(() => {
+    if (!session?.authenticated) return;
+    const timer = setInterval(() => { void refresh().catch(() => {}); }, 3000);
+    const focus = () => { void refresh().catch(() => {}); };
+    window.addEventListener('focus', focus);
+    return () => { clearInterval(timer); window.removeEventListener('focus', focus); };
+  }, [session?.authenticated, refresh]);
+  return <AdminWorkspace key={session?.authenticated ? `${session.username}:${session.role}` : 'guest'} />;
+}
+
+function AdminWorkspace() {
+  const { session, refresh } = useContext(SessionContext);
+  const role = session?.authenticated ? session.role : 'player';
+  const canManageGames = hasPermission(role, 'games.manage');
+  const canReadAnalytics = hasPermission(role, 'analytics.read');
+  const canManagePlatform = hasPermission(role, 'platform.manage');
+  const canManageAccounts = hasPermission(role, 'accounts.manage');
   const [data, setData] = useState<Overview | null>(null);
   const [error, setError] = useState('');
   const [importing, setImporting] = useState(false);
   const [importIds, setImportIds] = useState<number[]>([]);
-  const [preview, setPreview] = useState<{ url: string; title: string; expiresAt: number; previewManifest: GameManifest } | null>(
+  const [importSelections, setImportSelections] = useState<ImportSelection[] | undefined>();
+  const [sources, setSources] = useState<Source[]>([]);
+  const [sourceCheck, setSourceCheck] = useState<SourceCheck | null>(null);
+  const checkedOnEntry = useRef(false);
+  const [previewQueue, setPreviewQueue] = useState<{ gameId: string; version: string }[]>([]);
+  const [reviewing, setReviewing] = useState(false);
+  const [preview, setPreview] = useState<{ gameId: string; version: string; url: string; title: string; expiresAt: number; previewManifest: GameManifest } | null>(
     null,
   );
   const [confirm, setConfirm] = useState<{
@@ -980,11 +978,25 @@ function Admin() {
     action: () => Promise<void>;
   } | null>(null);
   const [busy, setBusy] = useState(false);
-  const [tab, setTab] = useState('games');
+  const [tab, setTab] = useState(canManageGames ? 'game-updates' : 'analytics');
+  const [visited, setVisited] = useState(() => new Set([canManageGames ? 'game-updates' : 'analytics']));
+  const [navigationOpen, setNavigationOpen] = useState(false);
+  function selectTab(next: string) { setTab(next); setVisited((tabs) => new Set([...tabs, next])); setNavigationOpen(false); }
+  const pageInfo: Record<string, [string, string]> = {
+    'game-updates': ['遊戲更新', '集中管理來源、新版匯入與發布。'], games: ['遊戲與版本', '快速找到遊戲，管理目前與歷史版本。'],
+    imports: ['匯入紀錄', '追蹤匯入進度，處理需要重試的項目。'], analytics: ['營運概況', '查看遊戲與訪客彙總統計。'],
+    updates: ['平台更新', '檢查平台版本與部署狀態。'], accounts: ['帳號權限', '管理工作區成員與角色。'],
+  };
   const notice = useNotice();
   const load = useCallback(async () => {
     try {
-      setData(await api<Overview>('/admin/overview'));
+      const [overview, sourceData, checkData] = await Promise.all([
+        api<Overview>('/admin/overview'), api<{ sources: Source[] }>('/admin/sources'),
+        api<{ check: SourceCheck | null }>('/admin/source-checks/current'),
+      ]);
+      setData(overview);
+      setSources(sourceData.sources);
+      setSourceCheck(checkData.check);
       setError('');
     } catch (e) {
       if (e instanceof ApiError && [401, 403].includes(e.status)) await refresh();
@@ -992,19 +1004,31 @@ function Admin() {
     }
   }, [refresh]);
   useEffect(() => {
-    if (!session?.authenticated || session.role !== 'admin') return;
+    if (!canManageGames) return;
     void load();
     const timer = setInterval(() => {
       if (!document.hidden) void load();
     }, 3000);
     return () => clearInterval(timer);
-  }, [session, load]);
+  }, [canManageGames, load]);
+  const checkSources = useCallback(async () => {
+    const result = await api<{ check: SourceCheck }>('/admin/source-checks', {});
+    setSourceCheck(result.check);
+    await load();
+  }, [load]);
+  useEffect(() => {
+    if (!canManageGames) { checkedOnEntry.current = false; return; }
+    if (checkedOnEntry.current) return;
+    checkedOnEntry.current = true;
+    void checkSources().catch((e) => notice((e as Error).message, true));
+  }, [canManageGames, checkSources, notice]);
   async function mutate(url: string, body: unknown, message: string) {
     await api(url, body);
     await load();
     notice(message);
   }
-  async function showPreview(game: AdminGame, version: string) {
+  async function showPreview(game: AdminGame, version: string, keepQueue = false) {
+    if (!keepQueue) setPreviewQueue([]);
     try {
       const manifest = game.versions.find((v) => v.version === version)?.manifest;
       if (!manifest) throw new Error('找不到預覽版本');
@@ -1014,12 +1038,36 @@ function Admin() {
       );
       setPreview({
         ...result,
+        gameId: game.id,
+        version,
         title: `${manifest.name} · v${version}`,
         previewManifest: manifest,
       });
+      return true;
     } catch (e) {
       notice((e as Error).message, true);
+      return false;
     }
+  }
+  async function previewSequence(items: { gameId: string; version: string }[]) {
+    const first = items[0];
+    const game = data?.games.find((g) => g.id === first?.gameId);
+    if (!game) return;
+    if (await showPreview(game, first.version, true)) setPreviewQueue(items.slice(1));
+  }
+  async function approvePreview() {
+    if (!preview) return;
+    setReviewing(true);
+    try {
+      await api(`/admin/games/${preview.gameId}/review`, { version: preview.version, approved: true });
+      await load();
+      const next = previewQueue[0];
+      const game = data?.games.find((g) => g.id === next?.gameId);
+      if (next && game) {
+        if (await showPreview(game, next.version, true)) setPreviewQueue((items) => items.slice(1));
+      } else { setPreview(null); setPreviewQueue([]); }
+    } catch (e) { notice((e as Error).message, true); }
+    finally { setReviewing(false); }
   }
   async function previewImported(gameId: string, version: string) {
     try {
@@ -1028,6 +1076,7 @@ function Admin() {
       const game = overview.games.find((g) => g.id === gameId);
       if (!game) throw new Error('找不到遊戲');
       setImporting(false);
+      setImportSelections(undefined);
       await showPreview(game, version);
     } catch (e) {
       notice((e as Error).message, true);
@@ -1040,7 +1089,7 @@ function Admin() {
       </main>
     );
   if (!session.authenticated) return <AuthPage admin />;
-  if (session.role !== 'admin')
+  if (!canAccessAdmin(session.role))
     return (
       <main className="page">
         <Empty title="這裡是管理員工作區" text="你的玩家帳號可以在大廳選擇遊戲。">
@@ -1050,167 +1099,65 @@ function Admin() {
         </Empty>
       </main>
     );
+  const pendingCount = data ? updateRows(sources, data.games).filter(isPendingUpdate).length : 0;
+  const navigation = <nav className="admin-navigation" aria-label="後台導覽">
+    {canManageGames && <><span className="admin-nav-group">遊戲管理</span>
+      <button className={tab === 'game-updates' ? 'active' : ''} aria-current={tab === 'game-updates' ? 'page' : undefined} onClick={() => selectTab('game-updates')}><RefreshCw size={18} /><span>遊戲更新</span><span className="admin-nav-count">{pendingCount}</span></button>
+      <button className={tab === 'games' ? 'active' : ''} aria-current={tab === 'games' ? 'page' : undefined} onClick={() => selectTab('games')}><Gamepad2 size={18} /><span>遊戲與版本</span></button>
+      <button className={tab === 'imports' ? 'active' : ''} aria-current={tab === 'imports' ? 'page' : undefined} onClick={() => selectTab('imports')}><History size={18} /><span>匯入紀錄</span>{data?.jobs.some((j) => ['queued', 'running'].includes(j.status)) && <span className="status-dot" />}</button></>}
+    {(canReadAnalytics || canManagePlatform || canManageAccounts) && <span className="admin-nav-group">平台管理</span>}
+    {canReadAnalytics && <button className={tab === 'analytics' ? 'active' : ''} aria-current={tab === 'analytics' ? 'page' : undefined} onClick={() => selectTab('analytics')}><Grid2X2 size={18} /><span>營運概況</span></button>}
+    {canManagePlatform && <button className={tab === 'updates' ? 'active' : ''} aria-current={tab === 'updates' ? 'page' : undefined} onClick={() => selectTab('updates')}><RefreshCw size={18} /><span>平台更新</span></button>}
+    {canManageAccounts && <button className={tab === 'accounts' ? 'active' : ''} aria-current={tab === 'accounts' ? 'page' : undefined} onClick={() => selectTab('accounts')}><ShieldCheck size={18} /><span>帳號權限</span></button>}
+  </nav>;
+  const openImport = () => { setImportSelections(undefined); setImportIds([]); setImporting(true); };
   return (
     <main className="page admin-page">
-      <div className="admin-intro">
-        <div>
-          <div className="eyebrow">
-            <LayoutDashboard size={14} /> WORKSPACE
-          </div>
-          <h1>遊戲管理</h1>
-          <p>你的遊戲收藏，從這裡開始。</p>
+      <aside className="admin-sidebar"><div className="admin-sidebar-brand"><LayoutDashboard size={22} /><div><strong>管理工作台</strong><small>PLAYROOM WORKSPACE</small></div></div>{navigation}<div className="admin-sidebar-account"><span className="account-avatar"><UserRound size={17} /></span><div><strong>{session.username}</strong><small>{roleLabels[role]}</small></div></div></aside>
+      <div className="admin-content">
+      <header className="admin-intro"><div><div className="eyebrow">管理工作台 / {canManageGames && ['games', 'game-updates', 'imports'].includes(tab) ? '遊戲管理' : '平台管理'}</div><h1>{pageInfo[tab][0]}</h1><p>{pageInfo[tab][1]}</p></div>
+        <div className="admin-actions"><button className="button admin-mobile-nav" aria-label="開啟後台導覽" onClick={() => setNavigationOpen(true)}><Menu size={18} /></button>
+          {canManageGames && <button className="icon-button" title="重新整理" onClick={() => void load()}><RefreshCw size={17} /></button>}
+          <button className="button" onClick={async () => { try { await api('/logout', {}); await refresh(); } catch (e) { notice((e as Error).message, true); } }}><LogOut size={16} /><span>登出</span></button>
+          {canManageGames && ['games', 'game-updates', 'imports'].includes(tab) && <button className="button primary" onClick={openImport}><Plus size={17} />匯入遊戲</button>}
         </div>
-        <div className="admin-actions">
-          <button
-            className="button"
-            onClick={async () => {
-              try {
-                await api('/logout', {});
-                await refresh();
-              } catch (e) {
-                notice((e as Error).message, true);
-              }
-            }}
-          >
-            <LogOut size={16} />
-            <span>登出</span>
-          </button>
-          <button className="button primary" onClick={() => {
-            setImportIds([]);
-            setImporting(true);
-          }}>
-            <Plus size={18} />
-            匯入遊戲
-          </button>
-        </div>
-      </div>
-      <div className="stats-row">
-        <div>
-          <span>全部遊戲</span>
-          <strong>{data?.games.length || 0}</strong>
-          <Gamepad2 />
-        </div>
-        <div>
-          <span>已上架</span>
-          <strong>{data?.games.filter((g) => g.published).length || 0}</strong>
-          <span className="stat-dot green" />
-        </div>
-        <div>
-          <span>待發布版本</span>
-          <strong>
-            {data?.games.flatMap((g) => g.versions).filter((v) => !v.publishedAt).length || 0}
-          </strong>
-          <span className="stat-dot yellow" />
-        </div>
-        <div>
-          <span>Repositories</span>
-          <strong>{data?.repositories.length || 0}</strong>
-          <Github />
-        </div>
-      </div>
-      <div className="admin-tab-row">
-        <div className="filter-tabs">
-          <button className={tab === 'games' ? 'active' : ''} onClick={() => setTab('games')}>
-            <Gamepad2 size={16} />
-            遊戲與版本
-          </button>
-          <button className={tab === 'imports' ? 'active' : ''} onClick={() => setTab('imports')}>
-            <History size={16} />
-            匯入紀錄
-            {data?.jobs.some((j) => ['queued', 'running'].includes(j.status)) && (
-              <span className="status-dot" />
-            )}
-          </button>
-          <button className={tab === 'sources' ? 'active' : ''} onClick={() => setTab('sources')}>
-            <Github size={16} />
-            遊戲來源
-          </button>
-          <button className={tab === 'analytics' ? 'active' : ''} onClick={() => setTab('analytics')}>
-            <Grid2X2 size={16} />
-            營運概況
-          </button>
-          <button className={tab === 'updates' ? 'active' : ''} onClick={() => setTab('updates')}>
-            <RefreshCw size={16} />
-            平台更新
-          </button>
-        </div>
-        <button className="icon-button" title="重新整理" onClick={() => void load()}>
-          <RefreshCw size={17} />
-        </button>
-      </div>
+      </header>
+      {canManageGames && ['games', 'game-updates'].includes(tab) && <div className="stats-row">
+        <div><span>全部遊戲</span><strong>{data?.games.length || 0}</strong><Gamepad2 /></div>
+        <div><span>已上架</span><strong>{data?.games.filter((g) => g.published).length || 0}</strong><span className="stat-dot green" /></div>
+        <div><span>待處理更新</span><strong>{pendingCount}</strong><span className="stat-dot yellow" /></div>
+        <div><span>使用中來源</span><strong>{sources.filter((s) => !s.archived).length}</strong><Github /></div>
+      </div>}
       {error && <ErrorMessage message={error} retry={() => void load()} />}
-      {tab === 'analytics' ? (
-        <AdminAnalytics />
-      ) : tab === 'updates' ? (
-        <PlatformUpdates />
-      ) : !data ? (
-        <Spinner />
-      ) : tab === 'sources' ? (
-        <SourcesPanel
-          onChanged={() => void load()}
-          onImport={(ids) => {
-            setImportIds(ids);
-            setImporting(true);
-          }}
-        />
-      ) : tab === 'games' ? (
-        !data.games.length ? (
-          <Empty title="準備好第一款遊戲了嗎？" text="從 GitHub Release 匯入你的第一款遊戲。">
-            <button className="button primary" onClick={() => {
-              setImportIds([]);
-              setImporting(true);
-            }}>
-              <Plus size={17} />
-              匯入遊戲
-            </button>
-          </Empty>
-        ) : (
-          <div className="admin-game-list">
-            {data.games.map((game) => (
-              <GameRow
-                key={game.id}
-                game={game}
-                repository={data.repositories.find((r) => r.id === game.repositoryId)?.fullName}
-                onPreview={(v) => void showPreview(game, v)}
-                onPublish={(version) =>
-                  setConfirm({
-                    title: game.versions.find((v) => v.version === version)?.publishedAt
-                      ? '切換發布版本'
-                      : '發布遊戲',
-                    text: `將 ${game.versions[0].manifest.name} 的 v${version} 設為目前上架版本。`,
-                    action: () =>
-                      mutate(`/admin/games/${game.id}/publish`, { version }, '遊戲已發布'),
-                  })
-                }
-                onUnpublish={() =>
-                  setConfirm({
-                    title: '下架遊戲',
-                    text: '下架後，玩家將無法開啟這款遊戲。所有版本會保留。',
-                    action: () => mutate(`/admin/games/${game.id}/unpublish`, {}, '遊戲已下架'),
-                  })
-                }
-              />
-            ))}
-          </div>
-        )
-      ) : (
-        <>
-          <ImportBatches
-            onChanged={() => void load()}
-            onPreview={(id, version) => void previewImported(id, version)}
-          />
-          <ImportHistory jobs={data.jobs} repositories={data.repositories} />
-        </>
-      )}
+      {visited.has('accounts') && canManageAccounts && <div hidden={tab !== 'accounts'}><AdminAccounts username={session.username} onChanged={refresh} /></div>}
+      {visited.has('analytics') && canReadAnalytics && <div hidden={tab !== 'analytics'}><React.Suspense fallback={<Spinner />}><AdminAnalytics canViewRecords={hasPermission(role, 'visitors.read')} /></React.Suspense></div>}
+      {visited.has('updates') && canManagePlatform && <div hidden={tab !== 'updates'}><PlatformUpdates /></div>}
+      {canManageGames && !data && <Spinner />}
+      {canManageGames && data && <>
+        <div hidden={tab !== 'game-updates'}><GameUpdatesPanel sources={sources} games={data.games} check={sourceCheck} onChanged={load} onCheck={checkSources}
+          onPreview={(items) => void previewSequence(items)}
+          onImport={(items) => { setImportSelections(items); setImportIds(items.map((item) => item.repositoryId)); setImporting(true); }}
+          onManualImport={(ids) => { setImportSelections(undefined); setImportIds(ids); setImporting(true); }} /></div>
+        {visited.has('games') && <div hidden={tab !== 'games'}><AdminGames games={data.games} repositories={data.repositories} onImport={openImport}
+          onPreview={(game, version) => void showPreview(game, version)}
+          onRevokeReview={(game, version) => setConfirm({ title: '撤銷預覽確認', text: '撤銷 ' + game.versions[0].manifest.name + ' v' + version + ' 的驗收確認。', action: () => mutate('/admin/games/' + game.id + '/review', { version, approved: false }, '預覽確認已撤銷') })}
+          onPublish={(game, version) => setConfirm({ title: game.versions.find((v) => v.version === version)?.publishedAt ? '切換發布版本' : '發布遊戲', text: '將 ' + game.versions[0].manifest.name + ' 的 v' + version + ' 設為目前上架版本。', action: () => mutate('/admin/games/' + game.id + '/publish', { version }, '遊戲已發布') })}
+          onUnpublish={(game) => setConfirm({ title: '下架遊戲', text: '下架後，玩家將無法開啟這款遊戲。所有版本會保留。', action: () => mutate('/admin/games/' + game.id + '/unpublish', {}, '遊戲已下架') })} /></div>}
+        {visited.has('imports') && <div hidden={tab !== 'imports'}><ImportBatches onChanged={() => void load()} onPreview={(id, version) => void previewImported(id, version)} /><ImportHistory jobs={data.jobs} repositories={data.repositories} /></div>}
+      </>}
+      </div>
+      {navigationOpen && <Dialog title="後台導覽" drawer onClose={() => setNavigationOpen(false)}>{navigation}</Dialog>}
       {importing && (
         <Dialog title="從 GitHub 匯入" wide onClose={() => {
           setImporting(false);
+          setImportSelections(undefined);
           void load();
         }}>
           <ImportWorkspace
             initialIds={importIds}
+            initialSelections={importSelections}
             onChanged={() => {
-              setTab('imports');
+              if (tab !== 'game-updates') selectTab('imports');
               void load();
             }}
             onPreview={(id, version) => void previewImported(id, version)}
@@ -1218,17 +1165,20 @@ function Admin() {
         </Dialog>
       )}
       {preview && (
-        <Dialog title="遊戲預覽" wide onClose={() => setPreview(null)}>
-          <GameFrame {...preview} />
+        <Dialog title="遊戲預覽" wide closeDisabled={reviewing} onClose={() => { if (!reviewing) { setPreview(null); setPreviewQueue([]); } }}>
+          <GameFrame key={`${preview.gameId}:${preview.version}`} {...preview} />
           <p className="preview-note">
             <Clock3 size={14} />
             預覽授權有效 15 分鐘
           </p>
+          <div className="preview-review-actions"><p>確認代表你已實際驗收開始、主要玩法、結束及重新開始，並檢查資源與錯誤。確認將保存並供其他管理者共用。</p>
+            <button className="button primary" disabled={reviewing || Date.now() >= preview.expiresAt} onClick={() => void approvePreview()}>{reviewing ? '保存確認…' : previewQueue.length ? '確認通過並看下一款' : '確認通過'}</button></div>
         </Dialog>
       )}
       {confirm && (
         <Dialog
           title={confirm.title}
+          closeDisabled={busy}
           onClose={() => {
             if (!busy) setConfirm(null);
           }}
@@ -1452,104 +1402,6 @@ function PlatformUpdates() {
         </Dialog>
       )}
     </section>
-  );
-}
-
-function GameRow({
-  game,
-  repository,
-  onPreview,
-  onPublish,
-  onUnpublish,
-}: {
-  game: AdminGame;
-  repository?: string;
-  onPreview: (v: string) => void;
-  onPublish: (v: string) => void;
-  onUnpublish: () => void;
-}) {
-  const [version, setVersion] = useState(game.activeVersion || game.versions[0].version);
-  const selected = game.versions.find((v) => v.version === version)!;
-  const current = game.published && game.activeVersion === version;
-  return (
-    <article className="admin-game">
-      <div className="admin-game-title">
-        <span className="game-mini-icon">
-          <Gamepad2 size={22} />
-        </span>
-        <div>
-          <h2>
-            {game.versions[0].manifest.name}
-            <span className={`badge ${game.published ? 'green' : 'neutral'}`}>
-              {game.published ? '已上架' : '未上架'}
-            </span>
-          </h2>
-          <span className="repo-label">
-            {repository ? (
-              <>
-                <Github size={13} />
-                {repository}
-              </>
-            ) : (
-              '本機範例遊戲'
-            )}
-          </span>
-        </div>
-        {game.published && (
-          <Link className="icon-button" title="開啟遊戲頁" to={`/games/${game.id}`}>
-            <ExternalLink size={17} />
-          </Link>
-        )}
-      </div>
-      <div className="version-row">
-        <label>
-          版本
-          <select
-            aria-label={`${game.id} 版本`}
-            value={version}
-            onChange={(e) => setVersion(e.target.value)}
-          >
-            {game.versions.map((v) => (
-              <option key={v.id} value={v.version}>
-                v{v.version}
-                {game.activeVersion === v.version && game.published
-                  ? ' · 目前上架'
-                  : !v.publishedAt
-                    ? ' · 待發布'
-                    : ' · 歷史版本'}
-              </option>
-            ))}
-          </select>
-        </label>
-        <span className="import-date">{date(selected.importedAt)} 匯入</span>
-        <div className="version-actions">
-          <button className="button small" onClick={() => onPreview(version)}>
-            <Play size={14} />
-            預覽
-          </button>
-          {current ? (
-            <button className="button small danger-text" onClick={onUnpublish}>
-              <Pause size={14} />
-              下架
-            </button>
-          ) : (
-            <button className="button primary small" onClick={() => onPublish(version)}>
-              {selected.publishedAt ? <History size={14} /> : <Upload size={14} />}
-              {selected.publishedAt ? '回退到此版本' : '發布'}
-            </button>
-          )}
-        </div>
-      </div>
-      <details className="version-details">
-        <summary>版本來源與校驗</summary>
-        <dl>
-          <dt>Release</dt>
-          <dd>{selected.releaseTag || '本機匯入'}</dd>
-          <dt>SHA-256</dt>
-          <dd className="checksum">{selected.sha256}</dd>
-        </dl>
-      </details>
-    </article>
   );
 }
 

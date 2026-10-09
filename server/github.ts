@@ -40,6 +40,11 @@ const releaseSchema = z.object({
 });
 export type ReleaseAsset = z.infer<typeof assetSchema>;
 export type ResolvedRelease = { release: Release; asset: ReleaseAsset };
+export class GitHubRateLimitError extends AppError {
+  constructor(public retryAt: number) {
+    super(502, 'GitHub API 額度不足，已暫停檢查，稍後自動重試');
+  }
+}
 export interface GitHubSource {
   owner(login: string): Promise<Pick<GitHubOwner, 'login' | 'kind'>>;
   discover(login: string, kind: GitHubOwner['kind'], page: number): Promise<{ repositories: Omit<DiscoveredRepository, 'added'>[]; hasMore: boolean }>;
@@ -71,8 +76,15 @@ export function githubSource(githubToken: string, fetcher: typeof fetch = fetch)
     } catch {
       throw new AppError(502, '無法連線到 GitHub，請稍後重試');
     }
-    if (response.status === 403 || response.status === 429)
-      throw new AppError(502, 'GitHub API 額度不足或存取受限，請稍後重試或設定 GITHUB_TOKEN');
+    if (response.status === 429 || (response.status === 403 &&
+        (response.headers.get('x-ratelimit-remaining') === '0' || response.headers.has('retry-after')))) {
+      const retry = response.headers.get('retry-after');
+      const retryAt = retry ? (/^\d+$/.test(retry) ? Date.now() + Number(retry) * 1000 : Date.parse(retry))
+        : Number(response.headers.get('x-ratelimit-reset')) * 1000;
+      throw new GitHubRateLimitError(Math.max(Date.now() + 1000, Number.isFinite(retryAt) && retryAt > 0 ? retryAt : Date.now() + 60000));
+    }
+    if (response.status === 403)
+      throw new AppError(502, 'GitHub API 存取受限，請檢查 GITHUB_TOKEN 權限');
     if (response.status === 404)
       throw new AppError(404, '找不到公開的 GitHub repository 或 Release');
     if (!response.ok) throw new AppError(502, `GitHub 回應錯誤（${response.status}）`);

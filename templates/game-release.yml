@@ -41,6 +41,7 @@ jobs:
           if ('v' + m.version !== process.env.RELEASE_TAG) throw Error('Tag and manifest version differ');
           if (/[\r\n]/.test(root)) throw Error('Invalid GAME_DIR');
           fs.appendFileSync(process.env.GITHUB_ENV, `GAME_PATH=${root}\n`);
+          fs.appendFileSync(process.env.GITHUB_ENV, `RELEASE_PRERELEASE=${m.version.includes('-')}\n`);
           JS
       - name: Install latest Playroom validation tools
         run: |
@@ -56,4 +57,4 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ github.ref_name }}
           RELEASE_REPO: ${{ github.repository }}
-        run: gh release create "$RELEASE_TAG" "$GAME_ZIP" --repo "$RELEASE_REPO" --verify-tag --generate-notes
+        run: gh release create "$RELEASE_TAG" "$GAME_ZIP" --repo "$RELEASE_REPO" --verify-tag --generate-notes --prerelease="$RELEASE_PRERELEASE"

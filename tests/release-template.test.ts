@@ -27,7 +27,7 @@ test('release version check uses environment values and rejects mismatched tags'
     RELEASE_TAG: 'v1.2.3',
   };
   await run(process.execPath, ['--input-type=module', '--eval', code], { env });
-  assert.equal(await fs.readFile(envFile, 'utf8'), `GAME_PATH=${directory}\n`);
+  assert.equal(await fs.readFile(envFile, 'utf8'), `GAME_PATH=${directory}\nRELEASE_PRERELEASE=false\n`);
   await assert.rejects(
     run(process.execPath, ['--input-type=module', '--eval', code], {
       env: { ...env, RELEASE_TAG: 'v1.2.4' },
@@ -46,6 +46,37 @@ test('release version check uses environment values and rejects mismatched tags'
     }),
     /GAME_DIR must be a directory inside/,
   );
+  await fs.writeFile(path.join(directory, 'game.json'), JSON.stringify({ version: '1.2.3-beta.1' }));
+  await fs.writeFile(envFile, '');
+  await run(process.execPath, ['--input-type=module', '--eval', code], {
+    env: { ...env, RELEASE_TAG: 'v1.2.3-beta.1' },
+  });
+  assert.equal(await fs.readFile(envFile, 'utf8'), `GAME_PATH=${directory}\nRELEASE_PRERELEASE=true\n`);
+});
+
+test('release publish command passes the prerelease flag and quotes artifact arguments', async (t) => {
+  const bash = process.platform === 'win32'
+    ? path.join(process.env.ProgramFiles || 'C:\\Program Files', 'Git', 'bin', 'bash.exe')
+    : 'bash';
+  if (process.platform === 'win32') {
+    try { await fs.access(bash); }
+    catch { t.skip('Git Bash is required to execute the workflow publish command'); return; }
+  }
+  const workflow = await fs.readFile('templates/game-release.yml', 'utf8');
+  const command = workflow.match(/run: (gh release create[^\r\n]+)/)?.[1];
+  assert.ok(command);
+  // A shell function records arguments without contacting GitHub or creating a release.
+  for (const prerelease of ['false', 'true']) {
+    const env = {
+      ...process.env, RELEASE_TAG: prerelease === 'true' ? 'v1.2.3-beta.1' : 'v1.2.3',
+      GAME_ZIP: '/tmp/build output/game.zip', RELEASE_REPO: 'example/game', RELEASE_PRERELEASE: prerelease,
+    };
+    const result = await run(bash, ['-c', 'gh() { printf "%s\\n" "$@"; }\n' + command], { env });
+    assert.deepEqual(result.stdout.trim().split(/\r?\n/), [
+      'release', 'create', env.RELEASE_TAG, env.GAME_ZIP, '--repo', env.RELEASE_REPO,
+      '--verify-tag', '--generate-notes', `--prerelease=${prerelease}`,
+    ]);
+  }
 });
 
 test('release CLI accepts a complete artifact and rejects invalid ZIP contents', async (t) => {

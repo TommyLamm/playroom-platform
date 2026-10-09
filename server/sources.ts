@@ -14,6 +14,7 @@ import {
 import { ownerName, type GitHubSource } from './github.js';
 import { AppError } from './errors.js';
 import type { ImportQueue } from './library.js';
+import type { SourceChecks } from './source-checks.js';
 import {
   defaultRelease,
   pendingJob,
@@ -34,6 +35,7 @@ export function registerSources(
   github: GitHubSource,
   queue: ImportQueue,
   requireAdmin: (request: FastifyRequest) => Promise<void>,
+  checks: SourceChecks,
 ) {
   function sources(): Source[] {
     const allGames = store.db.select().from(games).all();
@@ -212,28 +214,15 @@ export function registerSources(
       const repo = store.db.select().from(repositories).where(eq(repositories.id, id)).get();
       if (!repo) throw new AppError(404, '找不到 repository');
       if (repo.archived) throw new AppError(409, '請先恢復已封存來源');
-      const checkedAt = new Date().toISOString();
-      try {
-        const releases = await github.releases(repo.fullName);
-        store.db
-          .update(repositories)
-          .set({ cachedReleases: releases, checkedAt, checkError: null })
-          .where(eq(repositories.id, id))
-          .run();
-      } catch (error) {
-        store.db
-          .update(repositories)
-          .set({
-            checkedAt,
-            checkError:
-              error instanceof AppError ? error.message : '無法取得 GitHub Release，請重試',
-          })
-          .where(eq(repositories.id, id))
-          .run();
-      }
+      await checks.check(id);
       return { source: sources().find((r) => r.id === id)! };
     },
   );
+  app.post('/api/v1/admin/source-checks', { preHandler: requireAdmin }, async (request, reply) => {
+    z.object({}).strict().parse(request.body);
+    return reply.code(202).send({ check: checks.checkAll() });
+  });
+  app.get('/api/v1/admin/source-checks/current', { preHandler: requireAdmin }, async () => ({ check: checks.current() }));
   app.post('/api/v1/admin/import-batches', { preHandler: requireAdmin }, async (request, reply) => {
     const input = z
       .object({ requestId: z.string().uuid(), items: z.array(selectionSchema).min(1).max(100) })

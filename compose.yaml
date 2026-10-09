@@ -10,6 +10,7 @@ services:
       PLATFORM_ORIGIN: ${PLATFORM_ORIGIN:?Set HTTPS PLATFORM_ORIGIN in .env}
       GAMES_ORIGIN: ${GAMES_ORIGIN:?Set HTTPS GAMES_ORIGIN in .env}
       GITHUB_TOKEN: ${GITHUB_TOKEN:-}
+      GAME_RELEASE_CHECK_INTERVAL_SECONDS: ${GAME_RELEASE_CHECK_INTERVAL_SECONDS:-3600}
     volumes:
       - platform_data:/data
       - ${BACKUP_DIR:-./backups}:/backups

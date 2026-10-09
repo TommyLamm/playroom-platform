@@ -1,3 +1,4 @@
+import { canAccessAdmin } from '../shared/account';
 import { useEffect, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
 import type { Session } from '../shared/account.js';
@@ -21,7 +22,7 @@ export function VisitorTracking({ session }: { session: Session | null }) {
   const location = useLocation();
   const lastLocation = useRef('');
   useEffect(() => {
-    if (!session || (session.authenticated && session.role === 'admin')) return;
+    if (!session || (session.authenticated && canAccessAdmin(session.role))) return;
     const path = location.pathname;
     if (!/^(?:\/|\/(?:login|register|settings\/account)|\/(?:games|play)\/[a-z0-9][a-z0-9-]*|\/players\/[A-Za-z0-9_.-]{3,32})$/.test(path)) return;
     // StrictMode, session refreshes, query changes and fragment navigation do not

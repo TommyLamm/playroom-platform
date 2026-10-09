@@ -177,7 +177,7 @@ test('analytics storage failures show unknown and schema4 backups remain compati
   await restore(path.join(root, 'legacy-backup'), path.join(root, 'legacy-restored'));
   const restored = openStore(path.join(root, 'legacy-restored'));
   try {
-    assert.equal(restored.sqlite.pragma('user_version', { simple: true }), 7);
+    assert.equal(restored.sqlite.pragma('user_version', { simple: true }), 9);
     assert.equal(readBackupState(restored.sqlite).status, 'never');
   } finally { restored.sqlite.close(); }
 });

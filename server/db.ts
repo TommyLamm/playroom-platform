@@ -70,6 +70,8 @@ export const versions = sqliteTable('versions', {
   releaseTag: text('release_tag'),
   importedAt: text('imported_at').notNull(),
   publishedAt: text('published_at'),
+  reviewedBy: text('reviewed_by'),
+  reviewedAt: text('reviewed_at'),
 });
 export const jobs = sqliteTable('import_jobs', {
   id: text('id').primaryKey(),
@@ -99,7 +101,7 @@ export function openStore(dataDir: string) {
   sqlite.pragma('foreign_keys = ON');
   sqlite.pragma('busy_timeout = 5000');
   const version = sqlite.pragma('user_version', { simple: true }) as number;
-  if (version > 7) throw new Error('Database was created by a newer platform version');
+  if (version > 9) throw new Error('Database was created by a newer platform version');
   if (version === 0)
     sqlite.transaction(() => {
       sqlite.exec(`
@@ -227,6 +229,33 @@ export function openStore(dataDir: string) {
         PRAGMA user_version = 7;
       `);
     })();
+  if (version <= 7) {
+    // Rebuild the CHECK constraint without rewriting any referencing tables.
+    sqlite.pragma('foreign_keys = OFF');
+    try {
+      sqlite.transaction(() => {
+        sqlite.exec(`
+          CREATE TABLE users_v8 (id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT NOT NULL COLLATE NOCASE UNIQUE,
+            password TEXT NOT NULL, role TEXT NOT NULL DEFAULT 'player' CHECK(role IN ('player','game_manager','analyst','admin')),
+            created_at TEXT NOT NULL DEFAULT '');
+          INSERT INTO users_v8 SELECT id,username,password,role,created_at FROM users;
+          UPDATE sqlite_sequence SET seq=MAX(seq,COALESCE((SELECT seq FROM sqlite_sequence WHERE name='users'),0)) WHERE name='users_v8';
+          DROP TABLE users;
+          ALTER TABLE users_v8 RENAME TO users;
+          PRAGMA user_version = 8;
+        `);
+        if ((sqlite.pragma('foreign_key_check') as unknown[]).length) throw new Error('Account migration failed foreign key validation');
+      })();
+    } finally {
+      sqlite.pragma('foreign_keys = ON');
+    }
+  }
+  if (version <= 8) sqlite.transaction(() => {
+    const columns = sqlite.pragma('table_info(versions)') as { name: string }[];
+    if (!columns.some((c) => c.name === 'reviewed_by')) sqlite.exec('ALTER TABLE versions ADD COLUMN reviewed_by TEXT');
+    if (!columns.some((c) => c.name === 'reviewed_at')) sqlite.exec('ALTER TABLE versions ADD COLUMN reviewed_at TEXT');
+    sqlite.pragma('user_version = 9');
+  })();
   return { sqlite, db: drizzle(sqlite) };
 }
 export type Store = ReturnType<typeof openStore>;

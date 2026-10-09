@@ -20,7 +20,7 @@ import {
 } from './db.js';
 import { hashToken, passwordHash, token, verifyPassword } from './auth.js';
 import { githubSource, normalizeRepository, type GitHubSource } from './github.js';
-import { adminLibrary, ImportQueue, publish } from './library.js';
+import { adminLibrary, ImportQueue } from './library.js';
 import { gameId, gameVersion, isSafePath } from '../shared/manifest.js';
 import type { PublicGame } from '../shared/types.js';
 import type { Config } from './config.js';
@@ -32,11 +32,16 @@ import { registerAccountSettings } from './account-settings.js';
 import { registerAnalytics } from './analytics.js';
 import { registerVisitors } from './visitors.js';
 import { registerSources } from './sources.js';
+import { SourceChecks } from './source-checks.js';
+import { publishReviewed, registerGameUpdates } from './game-updates.js';
+import { hasPermission, type Permission, type UserRole } from '../shared/account.js';
+import { registerAccountManagement } from './account-management.js';
 
 type Session = typeof sessions.$inferSelect;
 declare module 'fastify' {
   interface FastifyRequest {
     userSession?: Session;
+    userRole?: UserRole;
   }
 }
 
@@ -53,6 +58,8 @@ export async function createApplication(
   const assets = Fastify({ logger: false });
   const github = options.github || githubSource(config.githubToken);
   const queue = new ImportQueue(store, config, github);
+  const checks = new SourceChecks(store, github);
+  platform.addHook('onClose', async () => { await checks.close(); });
   const cookieName = config.production ? '__Host-playroom' : 'playroom-session';
   const dummyPassword = await passwordHash(token());
   const platformHost = new URL(config.platformOrigin).host;
@@ -113,21 +120,29 @@ export async function createApplication(
       throw new AppError(403, '工作階段驗證失敗，請重新整理頁面');
     request.userSession = session;
   }
-  async function requireAdmin(request: FastifyRequest) {
-    await requireUser(request);
-    const user = store.db
-      .select()
-      .from(users)
-      .where(eq(users.id, request.userSession!.userId))
-      .get();
-    if (!user) throw new AppError(401, '登入已失效，請重新登入');
-    if (user.role !== 'admin') throw new AppError(403, '只有管理員可以使用管理後台');
+  function requirePermission(permission: Permission) {
+    return async (request: FastifyRequest) => {
+      await requireUser(request);
+      const user = store.db
+        .select()
+        .from(users)
+        .where(eq(users.id, request.userSession!.userId))
+        .get();
+      if (!user) throw new AppError(401, '登入已失效，請重新登入');
+      request.userRole = user.role;
+      if (!hasPermission(user.role, permission)) throw new AppError(403, '你的帳號沒有使用此功能的權限');
+    };
   }
+  const requireGames = requirePermission('games.manage');
+  const requireAnalytics = requirePermission('analytics.read');
+  const requirePlatform = requirePermission('platform.manage');
   registerCareer(platform, store, requireUser);
   registerPlayerLibrary(platform, store, requireUser);
-  registerAnalytics(platform, store, config, requireAdmin);
-  registerVisitors(platform, store, config, requireAdmin);
-  registerSources(platform, store, github, queue, requireAdmin);
+  registerAnalytics(platform, store, config, requireAnalytics);
+  registerVisitors(platform, store, config, requireAnalytics, requirePermission('visitors.read'));
+  registerSources(platform, store, github, queue, requireGames, checks);
+  registerGameUpdates(platform, store, requireGames);
+  registerAccountManagement(platform, store, requirePermission('accounts.manage'));
   function startSession(
     request: FastifyRequest,
     reply: import('fastify').FastifyReply,
@@ -192,11 +207,11 @@ export async function createApplication(
       throw new AppError(503, '更新服務暫時無法連線，請稍後重試');
     }
   }
-  platform.get('/api/v1/admin/updates', { preHandler: requireAdmin }, () => updater('status'));
-  platform.post('/api/v1/admin/updates/check', { preHandler: requireAdmin }, () =>
+  platform.get('/api/v1/admin/updates', { preHandler: requirePlatform }, () => updater('status'));
+  platform.post('/api/v1/admin/updates/check', { preHandler: requirePlatform }, () =>
     updater('check', {}),
   );
-  platform.post('/api/v1/admin/updates', { preHandler: requireAdmin }, async (request, reply) => {
+  platform.post('/api/v1/admin/updates', { preHandler: requirePlatform }, async (request, reply) => {
     const input = z
       .object({ commit: z.string().regex(/^[a-f0-9]{40}$/) })
       .strict()
@@ -300,14 +315,14 @@ export async function createApplication(
     return { game };
   });
 
-  platform.get('/api/v1/admin/overview', { preHandler: requireAdmin }, async () => ({
+  platform.get('/api/v1/admin/overview', { preHandler: requireGames }, async () => ({
     games: adminLibrary(store),
     repositories: store.db.select().from(repositories).all(),
     jobs: store.db.select().from(jobs).orderBy(desc(jobs.createdAt)).limit(50).all(),
   }));
   platform.post(
     '/api/v1/admin/repositories',
-    { preHandler: requireAdmin },
+    { preHandler: requireGames },
     async (request, reply) => {
       const input = z.object({ fullName: z.string().max(240) }).parse(request.body);
       const fullName = await github.checkRepository(normalizeRepository(input.fullName));
@@ -327,15 +342,18 @@ export async function createApplication(
   );
   platform.get(
     '/api/v1/admin/repositories/:id/releases',
-    { preHandler: requireAdmin },
+    { preHandler: requireGames },
     async (request) => {
       const { id } = repoParams.parse(request.params);
       const repo = store.db.select().from(repositories).where(eq(repositories.id, id)).get();
       if (!repo) throw new AppError(404, '找不到 repository');
-      return { releases: await github.releases(repo.fullName) };
+      await checks.check(id);
+      const checked = store.db.select().from(repositories).where(eq(repositories.id, id)).get()!;
+      if (checked.checkError) throw new AppError(502, checked.checkError);
+      return { releases: checked.cachedReleases };
     },
   );
-  platform.post('/api/v1/admin/imports', { preHandler: requireAdmin }, async (request, reply) => {
+  platform.post('/api/v1/admin/imports', { preHandler: requireGames }, async (request, reply) => {
     const input = z
       .object({ repositoryId: z.number().int().positive(), releaseId: z.number().int().positive() })
       .parse(request.body);
@@ -343,17 +361,17 @@ export async function createApplication(
   });
   platform.post(
     '/api/v1/admin/games/:id/publish',
-    { preHandler: requireAdmin },
+    { preHandler: requireGames },
     async (request) => {
       const { id } = gameParams.parse(request.params);
       const { version } = z.object({ version: gameVersion }).parse(request.body);
-      publish(store, id, version);
+      publishReviewed(store, id, version);
       return { ok: true };
     },
   );
   platform.post(
     '/api/v1/admin/games/:id/unpublish',
-    { preHandler: requireAdmin },
+    { preHandler: requireGames },
     async (request) => {
       const { id } = gameParams.parse(request.params);
       const game = store.db.select().from(games).where(eq(games.id, id)).get();
@@ -364,7 +382,7 @@ export async function createApplication(
   );
   platform.post(
     '/api/v1/admin/games/:id/preview',
-    { preHandler: requireAdmin },
+    { preHandler: requireGames },
     async (request) => {
       const { id } = gameParams.parse(request.params);
       const { version } = z.object({ version: gameVersion }).parse(request.body);
@@ -464,11 +482,16 @@ export async function createApplication(
   assets.setNotFoundHandler(async (_req, reply) =>
     reply.code(404).send({ error: '找不到遊戲資源' }),
   );
+  checks.start(config.releaseCheckIntervalSeconds);
   return {
     platform,
     assets,
     queue,
+    checks,
     async close() {
+      // Release checks can be paused on quota while an HTTP handler awaits them.
+      // Resolve queued checks before Fastify waits for those handlers to finish.
+      await checks.close();
       await platform.close();
       await assets.close();
       await queue.close();

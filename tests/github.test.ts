@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
-import { githubSource, normalizeRepository } from '../server/github.js';
+import { githubSource, normalizeRepository, GitHubRateLimitError } from '../server/github.js';
 
 test('GitHub discovery uses public user/org pagination, canonical owners and unique release assets', async () => {
   const requests: string[] = [];
@@ -31,6 +31,17 @@ test('GitHub adapter rejects rate limits and private sources', async () => {
   const privateSource = githubSource('', (async () =>
     Response.json({ full_name: 'example/game', private: true })) as typeof fetch);
   await assert.rejects(privateSource.checkRepository('example/game'), /公開/);
+});
+
+test('GitHub rate limit errors carry retry-after/reset times and do not confuse ordinary forbidden responses', async () => {
+  const before = Date.now();
+  const retry = githubSource('', (async () => new Response('{}', { status: 429, headers: { 'retry-after': '10' } })) as typeof fetch);
+  await assert.rejects(retry.releases('example/game'), (error: unknown) => error instanceof GitHubRateLimitError && error.retryAt >= before + 10000);
+  const resetAt = Math.ceil(Date.now() / 1000) + 120;
+  const reset = githubSource('', (async () => new Response('{}', { status: 403, headers: { 'x-ratelimit-remaining': '0', 'x-ratelimit-reset': String(resetAt) } })) as typeof fetch);
+  await assert.rejects(reset.releases('example/game'), (error: unknown) => error instanceof GitHubRateLimitError && error.retryAt === resetAt * 1000);
+  const forbidden = githubSource('', (async () => new Response('{}', { status: 403 })) as typeof fetch);
+  await assert.rejects(forbidden.releases('example/game'), (error: unknown) => error instanceof Error && !(error instanceof GitHubRateLimitError));
 });
 
 test('GitHub download checks redirects, limits, truncation and abort', async (t) => {

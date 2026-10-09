@@ -1,0 +1,15 @@
+.admin-accounts > p { color: var(--muted); }
+.account-role-guide { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr)); gap: 12px; margin: 20px 0; }
+.account-role-guide article, .managed-account { padding: 18px; border: 1px solid var(--line); border-radius: 14px; background: #fff; }
+.account-role-guide h3 { margin: 0 0 8px; font-size: 16px; }
+.account-role-guide p { margin: 0; font-size: 14px; line-height: 1.6; }
+.account-search, .account-pagination { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; margin: 20px 0; }
+.account-search input, .managed-account select { padding: 10px; border: 1px solid var(--line); border-radius: 8px; background: #fff; color: inherit; max-width: 100%; }
+.account-search input { min-width: 0; flex: 1 1 160px; }
+.managed-account-list { display: grid; gap: 10px; }
+.managed-account { display: flex; align-items: center; justify-content: space-between; gap: 18px; flex-wrap: wrap; }
+.managed-account strong { overflow-wrap: anywhere; }
+.managed-account p { margin: 6px 0 0; color: var(--muted); font-size: 14px; }
+.managed-account label { display: flex; align-items: center; gap: 10px; white-space: nowrap; }
+.managed-account select { width: auto; margin-top: 0; }
+.account-role-confirm { width: min(520px, calc(100vw - 32px)); padding: 28px; }

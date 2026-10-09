@@ -428,7 +428,7 @@ test('sources lifecycle: multiple owners, release checks, archive, 60 imports, r
       await restore(path.join(root, 'backup'), path.join(root, 'restored'));
       const restored = openStore(path.join(root, 'restored'));
       try {
-        assert.equal(restored.sqlite.pragma('user_version', { simple: true }), 7);
+        assert.equal(restored.sqlite.pragma('user_version', { simple: true }), 9);
         for (const table of [
           'github_owners',
           'repositories',
@@ -458,7 +458,7 @@ test('schema6 migration preserves repositories and visitors and can reopen schem
   );
   old.sqlite.close();
   const migrated = openStore(root);
-  assert.equal(migrated.sqlite.pragma('user_version', { simple: true }), 7);
+  assert.equal(migrated.sqlite.pragma('user_version', { simple: true }), 9);
   const repo = migrated.db.select().from(repositories).get()!;
   assert.equal(repo.fullName, 'alice/game');
   assert.equal(repo.archived, false);

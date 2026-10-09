@@ -7,7 +7,7 @@
     "node": ">=24.0.0"
   },
   "scripts": {
-    "dev": "concurrently -k \"cross-env NODE_ENV=development tsx watch server/main.ts\" \"vite --host 127.0.0.1\"",
+    "dev": "concurrently -k \"cross-env NODE_ENV=development tsx watch server/main.ts\" \"vite --host localhost\"",
     "build": "tsc -p tsconfig.server.json && vite build",
     "start": "node dist/server/main.js",
     "typecheck": "tsc --noEmit && tsc -p tsconfig.server.json --noEmit",

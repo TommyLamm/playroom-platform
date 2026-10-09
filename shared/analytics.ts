@@ -13,6 +13,6 @@ export type OperationalAnalytics = {
     success: number; rejected: number; serverError: number; attempts: number; failureRate: number | null;
     daily: { day: string; success: number; rejected: number; serverError: number }[];
   };
-  storage: { totalBytes: number | null; availableBytes: number | null; dataBytes: number | null; gameBytes: number | null; measuredAt: string };
-  backup: BackupState;
+  storage?: { totalBytes: number | null; availableBytes: number | null; dataBytes: number | null; gameBytes: number | null; measuredAt: string };
+  backup?: BackupState;
 };

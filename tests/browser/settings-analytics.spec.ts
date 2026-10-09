@@ -1,3 +1,4 @@
+import { selectAdminPage } from './helpers/admin';
 import { test, expect } from '@playwright/test';
 
 test('account settings protect private careers, revoke other sessions and rotate passwords', async ({ page, browser }, info) => {
@@ -113,7 +114,7 @@ test('admin operational overview reports server submissions and storage without 
   expect(after.submissions.rejected).toBe(before.submissions.rejected + 1);
   expect(after.storage.dataBytes).toBeGreaterThan(0);
   expect(after.storage.gameBytes).toBeGreaterThan(0);
-  await page.getByRole('button', { name: '營運概況', exact: true }).click();
+  await selectAdminPage(page, '營運概況');
   const analytics = page.getByRole('region', { name: '營運概況', exact: true });
   await expect(analytics).toContainText('熱門遊戲');
   await expect(analytics).toContainText('光點反應');

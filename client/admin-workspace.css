@@ -1,0 +1,158 @@
+/* Workspace styles are scoped so the public lobby retains its appearance. */
+.page.admin-page { --muted: #657b73; --line: #e0e9e5; max-width: 1680px; padding: 28px 32px 40px; display: grid; grid-template-columns: 218px minmax(0, 1fr); gap: 28px; align-items: start; }
+.admin-page [hidden] { display: none !important; }
+.admin-sidebar { position: sticky; top: 24px; background: #fff; border: 1px solid var(--line); border-radius: 18px; padding: 22px 12px 14px; box-shadow: 0 6px 24px #234b3c05; }
+.admin-sidebar-brand { display: flex; gap: 10px; align-items: center; color: var(--green); padding: 0 10px 22px; border-bottom: 1px solid var(--line); }
+.admin-sidebar-brand strong { display: block; font-size: 15px; }
+.admin-sidebar-brand small { display: block; font-size: 8px; letter-spacing: 1px; margin-top: 5px; color: var(--muted); }
+.admin-navigation { display: flex; flex-direction: column; gap: 5px; }
+.admin-nav-group { font-size: 10px; color: var(--muted); font-weight: 600; padding: 22px 12px 7px; letter-spacing: 1px; }
+.admin-navigation button { width: 100%; display: flex; gap: 11px; align-items: center; min-height: 44px; padding: 11px 12px; border: 0; border-radius: 9px; background: transparent; font-size: 13px; text-align: left; color: var(--muted); }
+.admin-navigation button > span:first-of-type { flex: 1; }
+.admin-navigation button:hover { color: var(--green); background: #f4f8f6; }
+.admin-navigation button.active { background: #eaf5ef; color: var(--green); font-weight: 700; }
+.admin-nav-count { padding: 2px 7px; border-radius: 6px; background: #fff; font-size: 11px; }
+.admin-sidebar-account { display: flex; gap: 10px; align-items: center; margin: 28px 6px 0; padding: 16px 4px 0; border-top: 1px solid var(--line); }
+.admin-sidebar-account strong, .admin-sidebar-account small { display: block; overflow-wrap: anywhere; }
+.admin-sidebar-account strong { font-size: 12px; }
+.admin-sidebar-account small { font-size: 10px; color: var(--muted); margin-top: 4px; }
+.admin-content { min-width: 0; }
+.admin-page .admin-intro { margin: 4px 0 24px; align-items: center; }
+.admin-page .admin-intro h1 { font-size: 26px; letter-spacing: -.6px; }
+.admin-page .admin-intro p { margin-top: 5px; font-size: 12px; }
+.admin-page .eyebrow { font-size: 10px; margin-bottom: 8px; font-weight: 500; color: var(--muted); }
+.admin-page .admin-actions { flex-wrap: wrap; align-items: center; justify-content: flex-end; }
+.admin-page .button { border-radius: 9px; font-weight: 600; min-height: 38px; transition: background-color .15s, border-color .15s; }
+.admin-page .icon-button { border-radius: 9px; min-width: 36px; min-height: 36px; }
+.admin-page .button.small { min-height: 32px; padding: 7px 10px; font-size: 11px; }
+.admin-page input:not([type=checkbox]):not([type=radio]), .admin-page select { border-radius: 9px; font-size: 12px; padding: 10px 12px; border-color: var(--line); }
+.admin-page input[type=checkbox], .admin-page input[type=radio] { accent-color: var(--green); }
+.admin-page .badge { font-size: 10px; padding: 4px 8px; border-radius: 6px; font-weight: 600; }
+.admin-page .stats-row { border: 0; padding: 0; gap: 12px; margin: 0 0 20px; }
+.admin-page .stats-row > div { background: #fff; border: 1px solid var(--line); border-radius: 12px; padding: 14px 18px; }
+.admin-page .stats-row > div > span:first-child { margin-bottom: 4px; font-size: 10px; }
+.admin-page .stats-row strong { font-size: 23px; font-weight: 650; }
+.admin-page .stats-row svg, .admin-page .stats-row .stat-dot { right: 18px; bottom: 19px; }
+.admin-page .admin-mobile-nav { display: none; }
+.admin-page :is(.game-updates-panel, .admin-games-panel, .admin-accounts, .analytics, .platform-updates) { background: #fff; border: 1px solid var(--line); border-radius: 16px; padding: 22px; box-shadow: 0 4px 18px #234b3c04; }
+.admin-page .analytics-controls button, .admin-page .analytics-error button { border: 1px solid var(--line); padding: 10px 14px; border-radius: 9px; background: #fff; color: var(--green); font-size: 12px; }
+.admin-page h2 { font-size: 17px; }
+.admin-page h3 { font-size: 14px; }
+.admin-panel-heading { display: flex; justify-content: space-between; gap: 12px; align-items: center; margin-bottom: 20px; }
+.admin-panel-heading p, .admin-page .source-heading p { font-size: 12px; color: var(--muted); margin-top: 5px; }
+.admin-page .admin-games-panel { height: calc(100dvh - 360px); min-height: 380px; display: flex; flex-direction: column; }
+.admin-games-panel .admin-panel-heading, .admin-games-panel .admin-list-filters, .admin-games-panel .admin-pagination { flex-shrink: 0; }
+.admin-page .admin-games-panel .admin-list-scroll { flex: 1; min-height: 150px; max-height: none; }
+.admin-list-filters { display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap; margin-bottom: 18px; }
+.admin-list-filters label { display: grid; gap: 7px; font-size: 11px; }
+.admin-list-filters .admin-search { flex: 1 1 240px; }
+.admin-search > span { position: relative; display: block; }
+.admin-search svg { position: absolute; top: 12px; left: 12px; color: var(--muted); }
+.admin-page .admin-search input { padding-left: 36px !important; }
+.admin-page .admin-list-scroll { max-height: min(58vh, 680px); overflow: auto; border: 1px solid var(--line); border-radius: 10px; scrollbar-width: thin; scrollbar-color: #c3d6cd transparent; }
+.admin-page table { border-collapse: separate; border-spacing: 0; width: 100%; font-size: 12px; }
+.admin-page th { background: #f6f9f7; padding: 12px 14px; color: var(--muted); font-size: 10px; font-weight: 600; border-bottom: 1px solid var(--line); }
+.admin-list-scroll th { position: sticky; top: 0; z-index: 1; }
+.admin-page td { padding: 14px; border-bottom: 1px solid #edf2ef; vertical-align: middle; }
+.admin-page tbody tr:last-child td { border-bottom: 0; }
+.admin-page tbody tr:hover { background: #f9fcfa; }
+.admin-page td small { display: block; font-size: 10px; color: var(--muted); margin-top: 5px; overflow-wrap: anywhere; }
+.admin-games-table { min-width: 680px; }
+.admin-game-cell { display: flex; gap: 12px; align-items: center; }
+.admin-game-cell > div { min-width: 0; }
+.admin-game-cell strong { font-size: 12px; }
+.admin-page .game-mini-icon { width: 36px; height: 36px; border-radius: 10px; flex-shrink: 0; }
+.admin-pagination { display: flex; gap: 9px; align-items: center; justify-content: flex-end; flex-wrap: wrap; margin-top: 16px; font-size: 11px; color: var(--muted); }
+.admin-pagination > span { margin-right: auto; }
+.admin-pagination label { display: flex; gap: 7px; align-items: center; font-size: 11px; }
+.admin-pagination select { width: auto; margin: 0; padding: 7px 10px; }
+.admin-list-empty { display: grid; justify-items: center; gap: 12px; padding: 46px 20px; text-align: center; color: var(--muted); }
+.admin-list-empty p { font-size: 12px; }
+.admin-page .update-filters { gap: 12px; margin: 18px 0; }
+.admin-page .update-filters label { font-size: 11px; flex: 1 1 135px; }
+.admin-page .update-filters label:first-child { flex: 2 1 220px; }
+.admin-page .update-filters input { width: 100%; }
+.admin-page .update-check-status { background: #f4f8f6; border-radius: 8px; padding: 9px 12px; font-size: 11px; margin-top: 12px; }
+.admin-page .update-bulk-actions { padding: 12px; border: 1px solid var(--line); background: #fafcfb; border-radius: 10px; gap: 8px; }
+.admin-page .update-bulk-actions > span { width: 100%; color: var(--muted); font-size: 11px; }
+.admin-page .update-row-actions { gap: 6px; }
+.admin-page .update-pagination { font-size: 11px; color: var(--muted); }
+.admin-page .game-update-table { min-width: 850px; }
+.admin-page .game-update-table td { vertical-align: top; }
+.admin-page .game-update-table .update-error { color: var(--red); }
+.admin-page .analytics-panel, .admin-page .managed-account, .admin-page .account-role-guide article { border-color: var(--line); border-radius: 12px; background: #fff; }
+.admin-page .analytics-totals > * { background: #f3f8f5; border: 1px solid var(--line); border-radius: 12px; }
+.admin-page :is(.source-error, .analytics-error, .job-error) { font-size: 12px; }
+.admin-page .table-scroll:not(.admin-list-scroll) { max-height: 65vh; }
+.admin-page .dialog { border: 1px solid var(--line); border-radius: 16px; box-shadow: 0 24px 80px #173d3226; }
+.admin-page .dialog::backdrop { background: #18342d55; backdrop-filter: blur(3px); }
+.admin-page .dialog.drawer { position: fixed; inset: 0 0 0 auto; width: min(580px, 100vw); height: 100dvh; max-height: 100dvh; max-width: 100vw; margin: 0; border-radius: 18px 0 0 18px; padding: 24px; overflow-y: auto; }
+.admin-page .drawer .dialog-heading { position: sticky; top: -24px; background: #fff; z-index: 2; padding: 20px 0 14px; margin-top: -20px; border-bottom: 1px solid var(--line); }
+.game-version-panel { min-width: 0; }
+.game-version-intro { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; padding: 16px 0; }
+.game-version-intro p { font-size: 11px; color: var(--muted); width: 100%; }
+.game-version-panel > label { display: grid; gap: 8px; font-size: 12px; margin: 10px 0 16px; }
+.version-picker { border: 1px solid var(--line); border-radius: 10px; overflow: auto; }
+.admin-page .version-picker table { min-width: 0; table-layout: fixed; }
+.admin-page .version-picker td:last-child { white-space: normal; overflow-wrap: anywhere; }
+.version-picker td { font-size: 11px; }
+.version-picker label { display: flex; align-items: center; gap: 8px; overflow-wrap: anywhere; }
+.version-picker input[type=radio] { width: 16px; margin: 0; }
+.version-picker tr.selected { background: #eff8f3; }
+.selected-version { margin-top: 22px; padding: 18px; background: #f5f9f7; border: 1px solid var(--line); border-radius: 12px; }
+.selected-version h3 { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.selected-version p { font-size: 11px; color: var(--muted); margin: 10px 0 16px; }
+.selected-version .version-actions { justify-content: flex-start; flex-wrap: wrap; }
+.selected-version dl { font-size: 11px; }
+@media (max-width: 1000px) {
+  .page.admin-page { grid-template-columns: 180px minmax(0, 1fr); padding: 24px 20px; gap: 20px; }
+  .admin-page .admin-intro { align-items: flex-start; flex-wrap: wrap; }
+}
+@media (max-width: 800px) {
+  .page.admin-page { display: block; padding: 22px 18px 32px; }
+  .admin-sidebar { display: none; }
+  .admin-page .admin-mobile-nav { display: inline-flex; }
+  .admin-page .dialog[aria-label="後台導覽"] { inset: 0 auto 0 0; width: min(300px, 100vw); border-radius: 0 18px 18px 0; }
+}
+@media (max-width: 600px) {
+  .page.admin-page { padding: 18px 12px 28px; }
+  .admin-page .admin-intro { gap: 12px; margin-bottom: 16px; }
+  .admin-page .admin-intro h1 { font-size: 23px; }
+  .admin-page .admin-actions { width: 100%; margin: 0; justify-content: flex-start; }
+  .admin-page .admin-actions .button.primary { margin-left: auto; }
+  .admin-page .stats-row { gap: 8px; margin-bottom: 14px; }
+  .admin-page .stats-row > div { padding: 10px 12px !important; }
+  .admin-page .stats-row strong { font-size: 20px; }
+  .admin-page .stats-row svg, .admin-page .stats-row .stat-dot { right: 12px; bottom: 15px; }
+  .admin-page :is(.game-updates-panel, .admin-games-panel, .admin-accounts, .analytics, .platform-updates) { padding: 14px; border-radius: 12px; }
+  .admin-page .source-heading { align-items: flex-start; gap: 12px; }
+  .admin-page .source-heading .source-actions { width: 100%; }
+  .admin-page .source-heading .source-actions .button { flex: 1; }
+  .admin-panel-heading { align-items: flex-start; }
+  .admin-panel-heading > .badge { white-space: nowrap; }
+  .admin-list-filters { gap: 10px; }
+  .admin-list-filters > label:not(.admin-search) { flex: 1; }
+  .admin-page .admin-list-scroll { max-height: none; overflow: visible; border: 0; border-radius: 0; }
+  .admin-page .admin-games-panel { height: auto; min-height: 0; display: block; }
+  .admin-games-table, .admin-games-table tbody { display: block; min-width: 0; }
+  .admin-games-table thead { display: none; }
+  .admin-games-table tr { display: grid; grid-template-columns: 1fr 1fr; border: 1px solid var(--line); border-radius: 12px; padding: 12px; gap: 10px; margin-bottom: 10px; }
+  .admin-page .admin-games-table td { padding: 0; border: 0; font-size: 11px; }
+  .admin-games-table td:first-child { grid-column: 1 / -1; padding-bottom: 10px !important; border-bottom: 1px solid var(--line) !important; }
+  .admin-games-table td:not(:first-child)::before { content: attr(data-label); display: block; color: var(--muted); font-size: 10px; margin-bottom: 5px; }
+  .admin-games-table td:last-child::before { display: none; }
+  .admin-games-table td:last-child { display: flex; align-items: end; justify-content: end; }
+  .admin-page .game-update-table { min-width: 0; }
+  .admin-page .game-update-table tr { border: 1px solid var(--line); border-radius: 12px; margin-bottom: 12px; }
+  .admin-page .game-update-table td { padding: 10px 10px 10px 104px; }
+  .admin-page .game-update-table td::before { left: 10px; top: 10px; font-size: 10px; }
+  .admin-page .game-update-table td:last-child { background: #f6f9f7; border-radius: 0 0 12px 12px; }
+  .admin-page .update-bulk-actions .button { min-height: 40px; }
+  .admin-page .admin-pagination { gap: 8px; }
+  .admin-page .admin-pagination > span { width: 100%; }
+  .admin-page .dialog.drawer { border-radius: 0; width: 100vw; padding: 18px; }
+  .admin-page .drawer .dialog-heading { top: -18px; margin-top: -14px; }
+  .admin-page .version-picker th, .admin-page .version-picker td { padding: 9px 7px; font-size: 10px; }
+  .admin-page .selected-version { padding: 14px; }
+  .admin-page .selected-version .version-actions .button { min-height: 44px; }
+}

@@ -8,6 +8,7 @@ import { hashToken, token } from './auth.js';
 import { AppError } from './errors.js';
 import { gameId, gameVersion } from '../shared/manifest.js';
 import type { VisitorAnalytics, VisitorRecords } from '../shared/visitors.js';
+import { canAccessAdmin, type UserRole } from '../shared/account.js';
 
 const retentionMs = 90 * 86400000;
 const daysSchema = z.enum(['7', '30']).default('7');
@@ -29,7 +30,7 @@ function windowFor(days: string) {
   return { start, end, window: { days: Number(days) as 7 | 30, start: new Date(start).toISOString(), end: now.toISOString(), timezone: 'UTC' as const } };
 }
 
-export function registerVisitors(platform: FastifyInstance, store: Store, config: Config, requireAdmin: (request: FastifyRequest) => Promise<void>) {
+export function registerVisitors(platform: FastifyInstance, store: Store, config: Config, requireAnalytics: (request: FastifyRequest) => Promise<void>, requireRecords: (request: FastifyRequest) => Promise<void>) {
   const sql = store.sqlite;
   const cookieName = config.production ? '__Host-playroom-visitor' : 'playroom-visitor';
   const sessionCookie = config.production ? '__Host-playroom' : 'playroom-session';
@@ -60,9 +61,9 @@ export function registerVisitors(platform: FastifyInstance, store: Store, config
     }
     const rawSession = request.cookies[sessionCookie];
     const user = rawSession ? sql.prepare(`SELECT u.id,u.role FROM sessions s JOIN users u ON u.id=s.user_id
-      WHERE s.token_hash=? AND s.expires_at>?`).get(hashToken(rawSession), now) as { id: number; role: string } | undefined : undefined;
+      WHERE s.token_hash=? AND s.expires_at>?`).get(hashToken(rawSession), now) as { id: number; role: UserRole } | undefined : undefined;
     // Administrative activity (including previews) is excluded from audience data.
-    if (user?.role === 'admin') return reply.code(204).send();
+    if (user && canAccessAdmin(user.role)) return reply.code(204).send();
     const ip = request.ip.replace(/^::ffff:/i, '');
     if (!isIP(ip)) throw new AppError(400, '無法辨識訪客地址');
     let country: string | null = null;
@@ -88,7 +89,7 @@ export function registerVisitors(platform: FastifyInstance, store: Store, config
     return reply.code(204).send();
   });
 
-  platform.get('/api/v1/admin/visitors', { preHandler: requireAdmin }, async (request): Promise<VisitorAnalytics> => {
+  platform.get('/api/v1/admin/visitors', { preHandler: requireAnalytics }, async (request): Promise<VisitorAnalytics> => {
     const { days } = z.object({ days: daysSchema }).strict().parse(request.query);
     const { start, end, window } = windowFor(days);
     const totals = sql.prepare(`SELECT COUNT(DISTINCT visitor_id) AS visitors,
@@ -110,7 +111,7 @@ export function registerVisitors(platform: FastifyInstance, store: Store, config
     return { window, totals, daily, countries, games };
   });
 
-  platform.get('/api/v1/admin/visitors/records', { preHandler: requireAdmin }, async (request): Promise<VisitorRecords> => {
+  platform.get('/api/v1/admin/visitors/records', { preHandler: requireRecords }, async (request): Promise<VisitorRecords> => {
     const query = z.object({ days: daysSchema, page: z.coerce.number().int().min(1).max(100000).default(1),
       country: z.string().regex(/^(?:[A-Z]{2}|unknown)$/).optional(), ip: z.string().max(45).refine((ip) => !!isIP(ip)).optional(),
       gameId: gameId.optional(), kind: z.enum(['page_view', 'game_open']).optional(),
