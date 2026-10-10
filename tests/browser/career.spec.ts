@@ -12,6 +12,27 @@ test('account scores persist, public summaries stay separate from private result
   await page.getByLabel('確認密碼', { exact: true }).fill('career-browser-password');
   await page.getByRole('button', { name: '建立帳號', exact: true }).click();
   await expect(page.locator('.account-name')).toHaveText(username);
+  const pageErrors: string[] = [];
+  page.on('pageerror', (error) => pageErrors.push(error.message));
+  await page.locator('.account-menu summary').click();
+  await page.getByRole('link', { name: '我的遊戲生涯', exact: true }).click();
+  await expect(page.getByRole('heading', { name: `${username} 的遊戲生涯` })).toBeVisible();
+  await expect(page.getByText('還沒有遊戲記錄。登入後開始遊玩，就能累積你的生涯。')).toBeVisible();
+  const progress = page.getByRole('region', { name: '我的進步', exact: true });
+  await expect(progress).toContainText('尚未保存成績');
+  await expect(progress.getByRole('button', { name: '重新整理進步' })).toBeDisabled();
+  await expect(page.getByRole('heading', { name: '我的逐局成績' })).toBeVisible();
+  await page.reload();
+  await expect(progress).toContainText('尚未保存成績');
+  expect(pageErrors).toEqual([]);
+  await page.goto('/play/signal-tap');
+  await expect(page.locator('.record-status')).toContainText('遊戲記錄已連線');
+  // Opening a game without finishing a run also leaves the progress selection empty.
+  await page.goto(`/players/${username}`);
+  await expect(page.getByRole('heading', { name: '光點反應', exact: true })).toBeVisible();
+  await expect(progress).toContainText('尚未保存成績');
+  await expect(page.getByText('還沒有完成的局次。成績需要遊戲支援回報。')).toBeVisible();
+  expect(pageErrors).toEqual([]);
   await page.goto('/play/signal-tap');
   await expect(page.locator('.record-status')).toContainText('遊戲記錄已連線');
   const game = page.frameLocator('iframe');
@@ -41,6 +62,8 @@ test('account scores persist, public summaries stay separate from private result
   await expect(page.getByRole('heading', { name: '我的逐局成績' })).toBeVisible();
   await expect(page.locator('.career-stats')).toContainText('完成局數');
   await expect(page.locator('.career-table:not(.progress-table)')).toContainText('1 分');
+  await expect(progress.getByRole('img', { name: '近期成績趨勢' })).toBeVisible();
+  expect(pageErrors).toEqual([]);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await page.screenshot({ path: `artifacts/career-${info.project.name}.png`, fullPage: true });
   const guest = await browser.newContext({ viewport: info.project.name === 'mobile' ? { width: 390, height: 844 } : { width: 1440, height: 1000 } });

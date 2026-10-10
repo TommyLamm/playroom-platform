@@ -82,8 +82,8 @@ export function PersonalProgressSection({ games }: { games: CareerGame[] }) {
     return () => controller.abort();
   }, [gameId, boardId, refresh]);
   // Selection changes must hide the preceding board before its request is replaced.
-  const progress = response?.gameId === gameId && response?.boardId === boardId ? response.progress : null;
-  const currentError = error?.gameId === gameId && error?.boardId === boardId ? error.message : '';
+  const progress = response && response.gameId === gameId && response.boardId === boardId ? response.progress : null;
+  const currentError = error && error.gameId === gameId && error.boardId === boardId ? error.message : '';
   return <section className="career-section progress-section" aria-label="我的進步">
     <div className="section-heading"><h2>我的進步</h2><button className="button secondary small" disabled={!board} onClick={() => setRefresh((value) => value + 1)}>重新整理進步</button></div>
     <p className="muted">只有本人可以查看。不同榜單分開追蹤；沿用同一榜單的遊戲版本會合併成績。</p>
