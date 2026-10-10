@@ -1,5 +1,6 @@
 import { useLayoutEffect, useRef, useState, type RefObject } from 'react';
 import { lockScroll } from './scroll-lock';
+import { isIOSBrowser } from './home-screen';
 
 export type GameDisplayMode = 'normal' | 'native' | 'immersive';
 type KeyboardLock = { lock: (keys: string[]) => Promise<void>; unlock: () => void };
@@ -87,6 +88,19 @@ export function useGameDisplay(
     return () => clearTimeout(timer);
   }, [hint]);
 
+  useLayoutEffect(() => {
+    if (!expanded) return;
+    const root = document.documentElement;
+    const theme = document.querySelector('meta[name="theme-color"]');
+    const previousTheme = theme?.getAttribute('content');
+    root.classList.add('game-expanded');
+    theme?.setAttribute('content', '#172b29');
+    return () => {
+      root.classList.remove('game-expanded');
+      if (previousTheme != null) theme?.setAttribute('content', previousTheme);
+    };
+  }, [expanded]);
+
   async function enter() {
     if (pending.current || modeRef.current !== 'normal') return;
     const shell = container.current;
@@ -106,7 +120,7 @@ export function useGameDisplay(
         if (ownsFullscreen(shell!)) await document.exitFullscreen();
         if (isCurrent()) {
           changeMode('immersive');
-          setHint('已使用沉浸模式，按右上角退出');
+          setHint(isIOSBrowser() ? '要隱藏網址列，請退出後按「加入主畫面」' : '已使用沉浸模式，按右上角退出');
         }
       } catch {
         if (isCurrent()) setHint('無法離開全螢幕，請按右上角或使用瀏覽器退出操作');

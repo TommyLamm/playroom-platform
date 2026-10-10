@@ -179,3 +179,15 @@ Playwright CLI 在隔離的臨時平台檢查 1440px、768px、390px、320px。�
 已檢視 `output/playwright/native-fullscreen.png` 與 `immersive-preview-{desktop,mobile}.png`。Chrome 的實體長按 Esc 退出尚未驗證：Playwright 重複 keydown 未觸發該機制，現有 Computer Use 按鍵 API 沒有持續按住功能；沒有以 mock 或 `exitFullscreen()` 代替宣稱通過。Safari、Firefox、真實手機及 Pointer Lock 遊戲仍未實測。後續手動驗收須在桌面 Chrome 進入全螢幕、短按 Esc 關閉遊戲內選單，再持續按住 Esc 約兩秒，確認回到一般播放器且不自動重新展開。
 
 開發規格與 `templates/game-agent-template.md` 同次同步，範本規格連結仍追蹤 `main`。未變更 Manifest、SDK 公開介面、遊戲成品或發布流程，未部署正式環境。
+
+## iOS 主畫面 Web App 與安全區域（2026-10-10）
+
+新增平台層的 `manifest.webmanifest`（`standalone`、同來源 `/` scope／start URL）、180／192／512px Playroom 圖示及 Apple 主畫面 metadata。一般 iOS 瀏覽器的播放器工具列提供「加入主畫面」指引；主畫面啟動時隱藏該入口，沉浸模式提示也區分瀏覽器與主畫面版本。指引說明 Safari 分享／加入主畫面、Web App 開關、圖示啟動，以及可能重新登入、本機存檔不共用與仍需連線。沒有新增 service worker、離線快取、存檔搬移或遊戲 Manifest／SDK 介面。
+
+加入 `viewport-fit=cover`，一般平台內容及展開播放器都處理安全區域；iframe、退出按鈕及提示避開瀏海與底部手勢區。展開期間使用深色背景及 theme color，退出／卸載後還原，不宣稱 theme color 能控制所有 iOS 版本的系統介面。
+
+`npm run typecheck`、`npm run build` 通過；`npx playwright test tests/browser/home-screen.spec.ts tests/browser/fullscreen.spec.ts tests/browser/platform.spec.ts tests/browser/admin-ui.spec.ts --headed` 共 36 項通過、4 項依裝置條件略過。新增案例核對平台實際提供的 manifest MIME、scope、圖示 PNG 尺寸與 metadata，指引關閉及焦點恢復、iframe 保留、主畫面狀態辨識、theme color 退出／導航清理。透過 Chrome CDP 安全區域 override 驗證直向 47px 頂部／34px 底部、橫向 47px 左右／21px 底部的 iframe 尺寸及退出按鈕位置，沒有水平溢出；Chrome 模擬只證明 CSS 幾何和程式分支，不代表 iOS 實機相容性通過。相關播放器、預覽、管理對話框與發布流程回歸也通過，沒有重跑完整後端或全部 E2E。
+
+已檢視 `output/playwright/home-screen-guide-mobile.png`、`home-screen-safe-area-mobile.png` 與主畫面圖示。README、開發規格及遊戲 Agent 範本同次同步，線上規格連結仍追蹤 `main`。未部署正式環境，未在 iOS 實機安裝、從主畫面啟動或驗證瀏覽器／Web App 間的登入與存檔狀態。
+
+依 [Apple 主畫面 Web App 說明](https://developer.apple.com/library/archive/documentation/AppleApplications/Reference/SafariWebContent/ConfiguringWebApplications/ConfiguringWebApplications.html)，主畫面 standalone 模式可移除瀏覽器網址列與工具列。iPhone 一般元素 Fullscreen API 的 [WebKit 206854](https://bugs.webkit.org/show_bug.cgi?id=206854) 仍在追蹤；部分 iOS 版本的主畫面狀態列／系統留邊亦有 [WebKit 301994](https://bugs.webkit.org/show_bug.cgi?id=301994) 紀錄，不能以 CSS 保證全部隱藏。正式驗收需在目標 iOS 版本以 Safari 加入主畫面，從 Playroom 圖示啟動、登入、進入遊戲、展開／退出及旋轉，確認網址列／工具列移除、退出與遊戲控制未被安全區遮擋，並分別檢查瀏覽器與主畫面版本的本機存檔。

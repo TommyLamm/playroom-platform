@@ -86,7 +86,8 @@ for (const scenario of ['missing-keyboard', 'missing-fullscreen', 'request-rejec
     await page.getByRole('button', { name: '全螢幕', exact: true }).click();
     await expect(page.locator('.game-shell')).toHaveAttribute('data-display-mode', 'immersive');
     await expectViewportFilled(page);
-    await expect(page.locator('.game-display-hint')).toHaveText('已使用沉浸模式，按右上角退出');
+    await expect(page.locator('.game-display-hint')).toHaveText(testInfo.project.name === 'mobile'
+      ? '要隱藏網址列，請退出後按「加入主畫面」' : '已使用沉浸模式，按右上角退出');
     expect(await page.evaluate(() => document.activeElement?.tagName)).toBe('IFRAME');
     expect(await page.evaluate(() => !!document.fullscreenElement)).toBe(false);
     expect(await page.evaluate(() => [document.body.style.overflow, document.documentElement.style.overflow])).toEqual(['hidden', 'hidden']);

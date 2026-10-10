@@ -63,6 +63,7 @@ import './styles.css';
 import { useGameBridge } from './game-bridge';
 import { SdkDiagnosticsPanel } from './sdk-diagnostics';
 import { useGameDisplay } from './use-game-display';
+import { HomeScreenInstallButton } from './home-screen';
 import type { GameManifest } from '../shared/manifest';
 import { CareerPage, LeaderboardPanel } from './career';
 import { FavoriteButton, LibraryError, PlayerLibraryProvider, PlayerLibrarySections } from './player-library';
@@ -672,6 +673,7 @@ function GameFrame({
           <button ref={display.enterButton} className="icon-button" title="全螢幕" disabled={display.busy} onClick={() => void display.enter()}>
             <Maximize size={19} />
           </button>
+          <HomeScreenInstallButton />
         </div>
       </div>
       <div className="game-viewport">

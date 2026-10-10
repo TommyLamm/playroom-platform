@@ -22,6 +22,15 @@ body {
   margin: 0;
   min-width: 320px;
 }
+#root {
+  padding: env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px)
+    env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px);
+}
+:root.game-expanded { background: #172b29; }
+@media (display-mode: standalone) {
+  :root { background: #172b29; }
+  #root { background: #f5f7f8; background-clip: content-box; }
+}
 button,
 input,
 select {
@@ -801,9 +810,10 @@ nav a.active:after {
 .game-shell:fullscreen .game-viewport,
 .game-shell[data-display-mode]:not([data-display-mode="normal"]) .game-viewport {
   position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
+  inset: env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px)
+    env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px);
+  width: auto;
+  height: auto;
   min-height: 0;
   aspect-ratio: auto;
 }
@@ -844,6 +854,9 @@ nav a.active:after {
   text-align: center;
   pointer-events: none;
 }
+.home-screen-guide { display: grid; gap: 16px; font-size: 14px; }
+.home-screen-guide ol { margin: 0; padding-left: 24px; }
+.home-screen-guide li + li { margin-top: 10px; }
 .play-caption {
   display: flex;
   justify-content: space-between;
