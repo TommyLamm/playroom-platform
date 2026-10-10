@@ -167,3 +167,15 @@ Vite 的字串 proxy 設定會改寫 Host 為 API 目標 `127.0.0.1:3000`，與�
 Playwright CLI 在隔離的臨時平台檢查 1440px、768px、390px、320px。大廳搜尋、分類、遊玩、返回及收藏由完整測試涵蓋；人工瀏覽器檢查營運概況 7／30 天切換、訪客 IP 篩選與清除、活動明細鍵盤展開／收合。四種尺寸沒有頁面水平溢出；手機國家及訪客熱門遊戲表格完整呈現，玩家熱門遊戲改為含開啟／完成／玩家數的摘要卡。活動明細的寬表格保留容器內捲動。
 
 已檢視桌面及手機截圖，保存在被 Git 忽略的 `output/playwright/lobby-polish-{1440,768,390,320}.png`、`analytics-polish-{1440,768,390,320}.png`，另有 `analytics-chart-320.png` 與 `analytics-games-320.png`。營運概況視覺截圖使用僅存在測試瀏覽器的示範統計資料；API 功能回歸使用實際臨時資料庫。本次未改變統計定義、角色權限、遊戲開發或發布流程，未部署正式環境。
+
+## 遊戲全螢幕與沉浸模式（2026-10-10）
+
+`npm run typecheck`、`npm run build` 通過；`npx playwright test tests/browser/fullscreen.spec.ts tests/browser/admin-ui.spec.ts tests/browser/platform.spec.ts --headed` 的桌面／手機 Chrome 共 28 項通過、4 項依裝置條件略過（其中 2 項原生鍵盤案例只在桌面執行）。這是相關套件回歸，未執行完整後端或全部 E2E。建置只有既有 Zod 註解標記的 Rollup 警告。
+
+新增案例驗證缺少 Keyboard Lock／Fullscreen API、全螢幕拒絕及鍵盤鎖定拒絕時降級；桌面與手機直橫向 iframe 填滿視窗、退出按鈕至少 44px、背景捲動鎖定及退出恢復。透過實際示範遊戲成績和 iframe 記號核對切換不重載、不清除進度；預覽展開隱藏 SDK 診斷、Esc 不關閉外層對話框，退出後恢復診斷、一般狀態列及焦點。連續點擊、鎖定尚未完成時退出／導航、延遲完成清理及同時卸載版本對話框、預覽與沉浸播放器均涵蓋。共用捲動鎖按使用者數量釋放，避免多個視窗卸載順序造成頁面持續禁止捲動。
+
+桌面案例使用真實 Chrome Fullscreen／Keyboard Lock API 及跨來源 sandbox iframe，驗證原生全螢幕無平台白邊、短按 Esc 傳入測試加入的遊戲內選單、退出按鈕及真實 `exitFullscreen()` 的狀態同步；另在保留真實 Fullscreen API 的情況下模擬鍵盤鎖定拒絕，驗證退出原生模式、降級後 iframe 焦點及視窗尺寸。失敗與競態案例使用明確的 API doubles，不視為原生按鍵行為通過的依據。
+
+已檢視 `output/playwright/native-fullscreen.png` 與 `immersive-preview-{desktop,mobile}.png`。Chrome 的實體長按 Esc 退出尚未驗證：Playwright 重複 keydown 未觸發該機制，現有 Computer Use 按鍵 API 沒有持續按住功能；沒有以 mock 或 `exitFullscreen()` 代替宣稱通過。Safari、Firefox、真實手機及 Pointer Lock 遊戲仍未實測。後續手動驗收須在桌面 Chrome 進入全螢幕、短按 Esc 關閉遊戲內選單，再持續按住 Esc 約兩秒，確認回到一般播放器且不自動重新展開。
+
+開發規格與 `templates/game-agent-template.md` 同次同步，範本規格連結仍追蹤 `main`。未變更 Manifest、SDK 公開介面、遊戲成品或發布流程，未部署正式環境。

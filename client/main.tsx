@@ -36,6 +36,7 @@ import {
   LoaderCircle,
   LogOut,
   Maximize,
+  Minimize,
   Menu,
   Monitor,
   Play,
@@ -61,6 +62,7 @@ import { api, ApiError, setCsrf } from './api';
 import './styles.css';
 import { useGameBridge } from './game-bridge';
 import { SdkDiagnosticsPanel } from './sdk-diagnostics';
+import { useGameDisplay } from './use-game-display';
 import type { GameManifest } from '../shared/manifest';
 import { CareerPage, LeaderboardPanel } from './career';
 import { FavoriteButton, LibraryError, PlayerLibraryProvider, PlayerLibrarySections } from './player-library';
@@ -573,6 +575,7 @@ function GameFrame({
   expiresAt,
   game,
   previewManifest,
+  onExpandedChange,
 }: {
   url: string;
   title: string;
@@ -580,6 +583,7 @@ function GameFrame({
   expiresAt?: number;
   game?: PublicGame;
   previewManifest?: GameManifest;
+  onExpandedChange?: (expanded: boolean) => void;
 }) {
   const [restart, setRestart] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -590,8 +594,8 @@ function GameFrame({
   const lastTrackedFrame = useRef('');
   const loadTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const container = useRef<HTMLDivElement>(null);
-  const notice = useNotice();
   const frame = useRef<HTMLIFrameElement>(null);
+  const display = useGameDisplay(container, frame, onExpandedChange);
   const { session } = useContext(SessionContext);
   const bridge = useGameBridge(frame, url, game, session, restart, previewManifest);
   useEffect(() => {
@@ -638,16 +642,10 @@ function GameFrame({
     const timer = setTimeout(() => setExpired(true), Math.max(0, expiresAt - Date.now()));
     return () => clearTimeout(timer);
   }, [expiresAt]);
-  async function fullscreen() {
-    try {
-      if (!container.current?.requestFullscreen) throw new Error();
-      await container.current.requestFullscreen();
-    } catch {
-      notice('這個瀏覽器目前不支援全螢幕模式', true);
-    }
-  }
   return (
-    <div className="game-shell" ref={container}>
+    <div className="game-shell" ref={container} data-display-mode={display.mode}>
+      {display.expanded && <button className="game-display-exit" title="退出全螢幕" aria-label="退出全螢幕" onClick={() => void display.exit()}><Minimize size={20} /></button>}
+      {display.hint && <div className="game-display-hint" role="status">{display.hint}</div>}
       <div className="player-toolbar">
         <div>
           {onBack && (
@@ -671,7 +669,7 @@ function GameFrame({
           >
             <RefreshCw size={18} />
           </button>
-          <button className="icon-button" title="全螢幕" onClick={fullscreen}>
+          <button ref={display.enterButton} className="icon-button" title="全螢幕" disabled={display.busy} onClick={() => void display.enter()}>
             <Maximize size={19} />
           </button>
         </div>
@@ -696,6 +694,7 @@ function GameFrame({
                   setLoading(false);
                   bridge.onLoad();
                   setLoadedFrame(`${url}-${restart}-${bridge.identity}`);
+                  if (display.expanded) frame.current?.focus({ preventScroll: true });
                 }}
                 onError={() => {
                   clearTimeout(loadTimer.current);
@@ -968,6 +967,7 @@ function AdminWorkspace() {
   const [sourceCheck, setSourceCheck] = useState<SourceCheck | null>(null);
   const checkedOnEntry = useRef(false);
   const [previewQueue, setPreviewQueue] = useState<{ gameId: string; version: string }[]>([]);
+  const [previewExpanded, setPreviewExpanded] = useState(false);
   const [reviewing, setReviewing] = useState(false);
   const [preview, setPreview] = useState<{ gameId: string; version: string; url: string; title: string; expiresAt: number; previewManifest: GameManifest } | null>(
     null,
@@ -1165,8 +1165,8 @@ function AdminWorkspace() {
         </Dialog>
       )}
       {preview && (
-        <Dialog title="遊戲預覽" wide closeDisabled={reviewing} onClose={() => { if (!reviewing) { setPreview(null); setPreviewQueue([]); } }}>
-          <GameFrame key={`${preview.gameId}:${preview.version}`} {...preview} />
+        <Dialog title="遊戲預覽" wide closeDisabled={reviewing} dismissOnEscape={!previewExpanded} onClose={() => { if (!reviewing) { setPreview(null); setPreviewQueue([]); } }}>
+          <GameFrame key={`${preview.gameId}:${preview.version}`} {...preview} onExpandedChange={setPreviewExpanded} />
           <p className="preview-note">
             <Clock3 size={14} />
             預覽授權有效 15 分鐘

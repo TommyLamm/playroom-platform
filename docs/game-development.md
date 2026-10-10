@@ -80,6 +80,8 @@ npm run game:validate -- artifacts/game.zip
 - iframe 允許 scripts、same-origin、pointer lock、fullscreen、autoplay 及 gamepad；瀏覽器仍可能要求玩家手勢才能播放音效或進入全螢幕。
 - 不允許 top navigation、popup、表單提交；也不提供麥克風、相機及平台登入憑證。
 - 遊戲需能適應 iframe 尺寸；畫面載入成功不代表自動支援手機。只有完成觸控適配才標示 `mobile`。
+- 平台全螢幕只顯示遊戲區域及右上角退出按鈕，隱藏平台工具列、成績狀態與預覽 SDK 診斷。支援時由平台頂層請求原生全螢幕並以 Keyboard Lock 鎖定 `Escape`，短按留給遊戲，長按可依瀏覽器機制退出；原生全螢幕或鎖定不可用／失敗時改用填滿網頁視窗的沉浸模式，保留瀏覽器網址列，使用右上角按鈕退出。遊戲不自行鎖定頂層鍵盤，也不依賴短按 Esc 退出平台播放器；Pointer Lock 的退出行為仍由瀏覽器控制。
+- 切換平台顯示模式不重載 iframe；遊戲需處理 iframe 尺寸變化，驗證一般／原生全螢幕／沉浸模式的操作區、遊戲內 Esc、退出及進度保留。管理預覽展開時 Esc 不關閉外層預覽，退出展開後恢復預覽對話框的 Esc 關閉行為。
 - `localStorage` 由遊戲自行管理，使用例如 `my-first-game:save:v1` 的 key。預覽與已發布版本共用遊戲來源，可能共享存檔；請在升級資料格式時保留相容性，儲存不可用時仍能遊玩。
 - 遊戲檔案應自包含。若自行連接外部服務，該服務的 CORS、可用性與資料處理由遊戲負責。
 
