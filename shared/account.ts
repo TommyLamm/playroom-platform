@@ -5,8 +5,7 @@ export const usernameSchema = z
   .trim()
   .min(3)
   .max(32)
-  .regex(/^[a-zA-Z0-9_.-]+$/)
-  .transform((value) => value.toLowerCase());
+  .regex(/^[a-zA-Z0-9_.-]+$/);
 export const registrationSchema = z
   .object({ username: usernameSchema, password: z.string().min(12).max(256) })
   .strict();

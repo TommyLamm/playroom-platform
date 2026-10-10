@@ -864,7 +864,7 @@ function AuthPage({ register = false, admin = false }: { register?: boolean; adm
             />
             {register && (
               <small className="field-hint" id="username-hint">
-                3–32 個英文字母、數字或 _ . -，不分大小寫
+                3–32 個英文字母、數字或 _ . -；保留大小寫，登入不分大小寫
               </small>
             )}
           </label>

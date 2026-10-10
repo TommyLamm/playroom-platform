@@ -77,21 +77,28 @@ test('registration creates only players; roles protect every management endpoint
     403,
   );
   const registration = await request('/api/v1/register', {
-    username: 'Player.One',
+    username: ' Player.One ',
     password: 'player-password',
   });
   assert.equal(registration.statusCode, 201);
   assert.equal(registration.json().role, 'player');
-  assert.equal(registration.json().username, 'player.one');
+  assert.equal(registration.json().username, 'Player.One');
   assert.ok(String(registration.headers['set-cookie']).includes('HttpOnly'));
   const headers = {
     cookie: String(registration.headers['set-cookie']).split(';')[0],
     'x-csrf-token': registration.json().csrf,
   };
   const player = store.db.select().from(users).where(eq(users.username, 'player.one')).get()!;
+  assert.equal(player.username, 'Player.One');
   assert.notEqual(player.password, 'player-password');
   assert.ok(await verifyPassword('player-password', player.password));
   assert.equal((await request('/api/v1/session', undefined, headers)).json().role, 'player');
+  assert.equal((await request('/api/v1/session', undefined, headers)).json().username, 'Player.One');
+  for (const spelling of ['Player.One', 'player.one', 'PLAYER.ONE']) {
+    const career = await request(`/api/v1/players/${spelling}/career`, undefined, headers);
+    assert.equal(career.statusCode, 200);
+    assert.equal(career.json().username, 'Player.One');
+  }
   assert.equal(
     (await request('/api/v1/register', { username: 'PLAYER.ONE', password: 'another-password' }))
       .statusCode,
@@ -129,6 +136,12 @@ test('registration creates only players; roles protect every management endpoint
   });
   assert.equal(login.statusCode, 200);
   assert.equal(login.json().role, 'player');
+  assert.equal(login.json().username, 'Player.One');
+  const lowercaseLogin = await request('/api/v1/login', {
+    username: 'player.one', password: 'player-password',
+  });
+  assert.equal(lowercaseLogin.statusCode, 200);
+  assert.equal(lowercaseLogin.json().username, 'Player.One');
   const adminLogin = await request('/api/v1/login', {
     username: 'admin',
     password: 'administrator-password',
@@ -153,6 +166,7 @@ test('registration creates only players; roles protect every management endpoint
       'player',
     );
     assert.equal(restored.db.select().from(sessions).all().length, 0);
+    assert.equal(restored.db.select().from(users).where(eq(users.username, 'player.one')).get()?.username, 'Player.One');
   } finally {
     restored.sqlite.close();
   }

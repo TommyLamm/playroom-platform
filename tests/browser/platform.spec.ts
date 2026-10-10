@@ -4,7 +4,7 @@ import { test, expect } from '@playwright/test';
 test('players register, sign in and stay outside the admin workspace', async ({
   page,
 }, testInfo) => {
-  const username = `player_${testInfo.project.name}_abcdefghijkl`;
+  const username = `Player_${testInfo.project.name}_AbCdEfGhIjKl`;
   const password = 'browser-player-password';
   await page.goto('/');
   await expect(
@@ -35,6 +35,10 @@ test('players register, sign in and stay outside the admin workspace', async ({
   ).toHaveCount(0);
   const session = await (await page.request.get('/api/v1/session')).json();
   expect(session.role).toBe('player');
+  expect(session.username).toBe(username);
+  await page.goto(`/players/${username.toLowerCase()}`);
+  await expect(page.getByRole('heading', { name: `${username.toLowerCase()} 的遊戲生涯` })).toBeVisible();
+  await expect(page.getByRole('heading', { name: '我的逐局成績', exact: true })).toBeVisible();
   expect((await page.request.get('/api/v1/admin/overview')).status()).toBe(403);
   await page.goto('/admin');
   await expect(page.getByRole('heading', { name: '這裡是管理員工作區' })).toBeVisible();
@@ -50,9 +54,16 @@ test('players register, sign in and stay outside the admin workspace', async ({
   await page.getByRole('button', { name: '登出帳號', exact: true }).click();
   await expect(page.locator('.account-name')).toHaveCount(0);
   await page.locator('.site-header').getByRole('link', { name: '登入', exact: true }).click();
-  await page.getByLabel('帳號', { exact: true }).fill(username.toUpperCase());
+  await page.getByLabel('帳號', { exact: true }).fill(username.toLowerCase());
   await page.getByLabel('密碼', { exact: true }).fill(password);
   await page.getByRole('button', { name: '登入', exact: true }).click();
+  await expect(page.locator('.account-name')).toHaveText(username);
+  const uppercaseLogin = await page.request.post('/api/v1/login', {
+    headers: { Origin: 'http://localhost:3070' }, data: { username: username.toUpperCase(), password },
+  });
+  expect(uppercaseLogin.status()).toBe(200);
+  expect((await uppercaseLogin.json()).username).toBe(username);
+  await page.reload();
   await expect(page.locator('.account-name')).toHaveText(username);
   if (testInfo.project.name === 'mobile') {
     await page.setViewportSize({ width: 320, height: 740 });
