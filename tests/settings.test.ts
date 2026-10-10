@@ -61,7 +61,7 @@ test('career visibility redacts activity for guests, protects private careers an
   const alice = await signIn('privacy_alice');
   const bob = await signIn('privacy_bob');
   store.sqlite.prepare("UPDATE users SET role='admin' WHERE username='privacy_bob'").run();
-  const play = (await req('/api/v1/games/signal-tap/plays', { version: '1.2.0', requestId: randomUUID() }, alice)).json().playId;
+  const play = (await req('/api/v1/games/signal-tap/plays', { version: '1.2.1', requestId: randomUUID() }, alice)).json().playId;
   const run = (await req(`/api/v1/plays/${play}/runs`, { requestId: randomUUID() }, alice)).json().runId;
   assert.equal((await req(`/api/v1/runs/${run}/finish`, { score: 12 }, alice)).statusCode, 200);
   const career = (headers: Headers = {}) => req('/api/v1/players/privacy_alice/career', undefined, headers);
@@ -173,14 +173,14 @@ test('settings survive backups and schema-four migration preserves sessions, fav
   const { req, signIn, root, config, store } = await fixture(t);
   const alice = await signIn('backup_alice');
   await req('/api/v1/me/settings', { careerVisibility: 'private' }, alice);
-  const play = (await req('/api/v1/games/signal-tap/plays', { version: '1.2.0', requestId: randomUUID() }, alice)).json().playId;
+  const play = (await req('/api/v1/games/signal-tap/plays', { version: '1.2.1', requestId: randomUUID() }, alice)).json().playId;
   const run = (await req(`/api/v1/plays/${play}/runs`, { requestId: randomUUID() }, alice)).json().runId;
   assert.equal((await req(`/api/v1/runs/${run}/finish`, { score: 7 }, alice)).statusCode, 200);
   await backup(config.dataDir, path.join(root, 'backup'));
   await restore(path.join(root, 'backup'), path.join(root, 'restored'));
   const recovered = openStore(path.join(root, 'restored'));
   try {
-    assert.equal(recovered.sqlite.pragma('user_version', { simple: true }), 9);
+    assert.equal(recovered.sqlite.pragma('user_version', { simple: true }), 10);
     assert.equal((recovered.sqlite.prepare('SELECT career_visibility FROM account_settings').get() as { career_visibility: string }).career_visibility, 'private');
     assert.equal((recovered.sqlite.prepare('SELECT COUNT(*) AS count FROM sessions').get() as { count: number }).count, 0);
     assert.equal((recovered.sqlite.prepare('SELECT score FROM runs WHERE id=?').get(run) as { score: number }).score, 7);
@@ -191,7 +191,7 @@ test('settings survive backups and schema-four migration preserves sessions, fav
   store.sqlite.exec('DROP TABLE import_batch_items; DROP TABLE import_batches; DROP TABLE github_owners; ALTER TABLE repositories DROP COLUMN archived; ALTER TABLE repositories DROP COLUMN checked_at; ALTER TABLE repositories DROP COLUMN check_error; ALTER TABLE repositories DROP COLUMN cached_releases; DROP TABLE visitor_events; DROP TABLE account_settings; DROP TABLE score_submission_metrics; DROP TABLE operational_state; PRAGMA user_version=4;');
   const migrated = openStore(config.dataDir);
   try {
-    assert.equal(migrated.sqlite.pragma('user_version', { simple: true }), 9);
+    assert.equal(migrated.sqlite.pragma('user_version', { simple: true }), 10);
     assert.equal((migrated.sqlite.prepare('SELECT COUNT(*) AS count FROM sessions').get() as { count: number }).count, 1);
     assert.equal((migrated.sqlite.prepare('SELECT COUNT(*) AS count FROM versions').get() as { count: number }).count, 2);
     assert.equal((migrated.sqlite.prepare('SELECT COUNT(*) AS count FROM favorites').get() as { count: number }).count, 1);

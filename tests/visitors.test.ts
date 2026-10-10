@@ -85,7 +85,7 @@ test('visitor analytics records anonymous and authenticated activity with server
       assert.equal((await req(`/api/v1/admin/visitors/records?${query}`, undefined, admin)).statusCode, 400);
   });
   await t.test('only published games and public paths are recorded; admin and previews are excluded', async () => {
-    const input = event({ kind: 'game_open', path: '/play/signal-tap', gameId: 'signal-tap', version: '1.2.0' });
+    const input = event({ kind: 'game_open', path: '/play/signal-tap', gameId: 'signal-tap', version: '1.2.1' });
     assert.equal((await req('/api/v1/visits', input, { cookie: guestCookie })).statusCode, 204);
     assert.equal((await req('/api/v1/visits', input, { cookie: guestCookie })).statusCode, 204);
     assert.equal((await req('/api/v1/visits', event({ ...input, requestId: randomUUID(), version: '99.0.0' }), { cookie: guestCookie })).statusCode, 404);
@@ -104,7 +104,7 @@ test('visitor analytics records anonymous and authenticated activity with server
     const game = (await view()).games[0];
     assert.deepEqual(game, { gameId: 'signal-tap', name: '光點反應', opens: 1, visitors: 1 });
     const row = (await records('&gameId=signal-tap')).records[0];
-    assert.equal(row.gameName, '光點反應'); assert.equal(row.gameVersion, '1.2.0');
+    assert.equal(row.gameName, '光點反應'); assert.equal(row.gameVersion, '1.2.1');
     assert.equal(row.path, '/play/signal-tap');
   });
   await t.test('UTC windows, stable pagination and visitor filters retain older records', async () => {
@@ -131,13 +131,13 @@ test('visitor analytics records anonymous and authenticated activity with server
     await restore(path.join(root, 'backup'), path.join(root, 'restored'));
     const recovered = openStore(path.join(root, 'restored'));
     try {
-      assert.equal(recovered.sqlite.pragma('user_version', { simple: true }), 9);
+      assert.equal(recovered.sqlite.pragma('user_version', { simple: true }), 10);
       assert.deepEqual(recovered.sqlite.prepare('SELECT * FROM visitor_events ORDER BY id').all(), store.sqlite.prepare('SELECT * FROM visitor_events ORDER BY id').all());
       recovered.sqlite.exec('DROP TABLE import_batch_items; DROP TABLE import_batches; DROP TABLE github_owners; ALTER TABLE repositories DROP COLUMN archived; ALTER TABLE repositories DROP COLUMN checked_at; ALTER TABLE repositories DROP COLUMN check_error; ALTER TABLE repositories DROP COLUMN cached_releases; DROP TABLE visitor_events; PRAGMA user_version=5;');
     } finally { recovered.sqlite.close(); }
     const upgraded = openStore(path.join(root, 'restored'));
     try {
-      assert.equal(upgraded.sqlite.pragma('user_version', { simple: true }), 9);
+      assert.equal(upgraded.sqlite.pragma('user_version', { simple: true }), 10);
       assert.equal((upgraded.sqlite.prepare('SELECT COUNT(*) AS n FROM users').get() as { n: number }).n, 2);
       assert.equal((upgraded.sqlite.prepare('SELECT COUNT(*) AS n FROM games').get() as { n: number }).n, 2);
       assert.equal((upgraded.sqlite.prepare('SELECT COUNT(*) AS n FROM visitor_events').get() as { n: number }).n, 0);

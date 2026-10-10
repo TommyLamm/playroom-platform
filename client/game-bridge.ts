@@ -4,6 +4,7 @@ import type { PublicGame } from '../shared/types';
 import type { Session } from '../shared/account';
 import type { GameManifest } from '../shared/manifest';
 import { api, ApiError } from './api';
+import { saveProgressInput, type ProgressSave } from '../shared/cloud-save';
 
 export type SdkDiagnosticEvent = { id: number; at: number; kind: 'info' | 'success' | 'error'; text: string };
 export type SdkDiagnostics = { state: 'waiting' | 'connected' | 'timeout'; simulation: boolean; events: SdkDiagnosticEvent[] };
@@ -11,7 +12,7 @@ export type SdkDiagnostics = { state: 'waiting' | 'connected' | 'timeout'; simul
 const messageSchema = z.object({
   protocol: z.literal('playroom'), version: z.literal(1), type: z.literal('request'),
   connection: z.string().uuid(), requestId: z.string().uuid(),
-  method: z.enum(['startRun', 'finishRun']), payload: z.unknown(),
+  method: z.enum(['startRun', 'finishRun', 'loadProgress', 'saveProgress']), payload: z.unknown(),
 }).strict();
 
 export function useGameBridge(frame: RefObject<HTMLIFrameElement | null>, url: string, game: PublicGame | undefined, session: Session | null, restart: number, previewManifest?: GameManifest) {
@@ -28,7 +29,7 @@ export function useGameBridge(frame: RefObject<HTMLIFrameElement | null>, url: s
     let playPromise: Promise<string | null> | null = null;
     let invalid = false;
     const controller = new AbortController();
-    const call = <T,>(path: string, body: unknown) => api<T>(path, body, {
+    const call = <T,>(path: string, body?: unknown) => api<T>(path, body, {
       signal: AbortSignal.any([controller.signal, AbortSignal.timeout(12000)]),
     });
     const connection = crypto.randomUUID();
@@ -38,6 +39,7 @@ export function useGameBridge(frame: RefObject<HTMLIFrameElement | null>, url: s
     const mode = previewManifest || !game ? 'preview' : session?.authenticated ? 'authenticated' : 'guest';
     const diagnose = mode === 'preview' && !!previewManifest;
     const previewScores = new Map<string, number>();
+    let previewSave: ProgressSave | null = null;
     let sdkHello = false;
     let simulation = false;
     let eventId = 0;
@@ -75,7 +77,7 @@ export function useGameBridge(frame: RefObject<HTMLIFrameElement | null>, url: s
       try { await call(`/plays/${playId}/heartbeat`, { active }); }
       catch (error) { if (error instanceof ApiError && [401, 403, 404].includes(error.status)) failure(error); }
     }
-    function init() { send({ type: 'init', mode: invalid ? 'guest' : mode, scoring: !!(game?.leaderboard || previewManifest?.leaderboard), ...(diagnose ? { diagnostics: true } : {}) }); }
+    function init() { send({ type: 'init', mode: invalid ? 'guest' : mode, scoring: !!(game?.leaderboard || previewManifest?.leaderboard), progress: !!game && mode === 'authenticated' && !invalid, ...(diagnose ? { diagnostics: true } : {}) }); }
     function ensurePlay(): Promise<string | null> {
       if (playPromise) return playPromise;
       if (mode !== 'authenticated' || !game || invalid) return Promise.resolve(null);
@@ -99,7 +101,8 @@ export function useGameBridge(frame: RefObject<HTMLIFrameElement | null>, url: s
         setDiagnostics((current) => ({ ...current, state: 'timeout' }));
         record('error', '8 秒內未收到 SDK 連線，請確認遊戲載入 SDK');
       }, 8000);
-      void ensurePlay().then(init).catch(() => {});
+      init();
+      void ensurePlay().catch(() => {});
     };
     async function save(result: { runId: string; score: number }) {
       if (disposed || invalid) throw new Error('遊戲連線已失效');
@@ -130,7 +133,7 @@ export function useGameBridge(frame: RefObject<HTMLIFrameElement | null>, url: s
           setDiagnostics((current) => ({ ...current, state: 'connected', simulation }));
           record('success', simulation ? 'SDK 已連線；已啟用預覽模擬' : 'SDK 已連線；此 SDK 未支援預覽局次診斷，請更新 SDK');
         }
-        if (started) void ensurePlay().then(init).catch(() => {});
+        if (started) { init(); void ensurePlay().catch(() => {}); }
         return;
       }
       const parsed = messageSchema.safeParse(event.data);
@@ -144,6 +147,18 @@ export function useGameBridge(frame: RefObject<HTMLIFrameElement | null>, url: s
         if (!operation) {
           if (operations.size >= 1000) { record('error', '預覽診斷已達上限，請重新開始'); send({ type: 'response', requestId: message.requestId, error: '請重新開始預覽' }); return; }
           operation = (async () => {
+            if (message.method === 'loadProgress') {
+              z.object({}).strict().parse(message.payload);
+              record('info', 'loadProgress：只讀取此預覽的暫存進度');
+              return previewSave;
+            }
+            if (message.method === 'saveProgress') {
+              const input = saveProgressInput.parse(message.payload);
+              if (input.revision !== (previewSave?.revision ?? 0)) throw new Error('預覽進度版本衝突，請重新讀取');
+              previewSave = { ...input, revision: input.revision + 1, gameVersion: previewManifest.version, updatedAt: new Date().toISOString() };
+              record('success', 'saveProgress：驗證通過；只暫存於預覽，不保存帳號進度');
+              return null;
+            }
             if (message.method === 'startRun') {
               z.object({}).strict().parse(message.payload);
               record('info', 'startRun：收到開始一局');
@@ -169,7 +184,7 @@ export function useGameBridge(frame: RefObject<HTMLIFrameElement | null>, url: s
         try { send({ type: 'response', requestId: message.requestId, result: await operation }); }
         catch (error) {
           operations.delete(message.requestId);
-          const text = error instanceof z.ZodError ? '成績格式不正確，需非負安全整數與有效局次' : (error as Error).message;
+          const text = error instanceof z.ZodError ? 'SDK 資料格式不正確' : (error as Error).message;
           record('error', `${message.method}：${text}`);
           send({ type: 'response', requestId: message.requestId, error: text });
         }
@@ -183,6 +198,18 @@ export function useGameBridge(frame: RefObject<HTMLIFrameElement | null>, url: s
       if (!operation) {
         if (operations.size >= 1000) { send({ type: 'response', requestId: message.requestId, error: '請重新開啟遊戲以繼續保存' }); return; }
         operation = (async () => {
+          if (message.method === 'loadProgress' || message.method === 'saveProgress') {
+            if (!game || disposed || invalid) throw new Error('遊戲連線已失效');
+            if (message.method === 'loadProgress') {
+              z.object({}).strict().parse(message.payload);
+              return call(`/games/${game.id}/save`);
+            }
+            const input = saveProgressInput.parse(message.payload);
+            const result = await call(`/games/${game.id}/save`, { ...input, version: game.version, requestId: message.requestId });
+            // Score retries have their own toolbar state; progress must not hide an unsaved run.
+            if (!disposed && !game.leaderboard && failed.size === 0) setStatus('進度已保存至帳號');
+            return result;
+          }
           const id = await ensurePlay();
           if (!id || disposed || invalid) throw new Error('遊戲連線已失效');
           if (message.method === 'startRun') {
@@ -203,7 +230,7 @@ export function useGameBridge(frame: RefObject<HTMLIFrameElement | null>, url: s
       catch (error) {
         operations.delete(message.requestId);
         failure(error);
-        send({ type: 'response', requestId: message.requestId, error: error instanceof z.ZodError ? '成績格式不正確' : (error as Error).message });
+        send({ type: 'response', requestId: message.requestId, error: error instanceof z.ZodError ? 'SDK 資料格式不正確' : (error as Error).message, ...(error instanceof ApiError ? { errorCode: error.status } : {}) });
       }
     }
     retry.current = () => {

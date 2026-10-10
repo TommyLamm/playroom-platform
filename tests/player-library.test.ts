@@ -81,10 +81,10 @@ test('player library: private recent games, synced favorites, migrations and bac
   const addPlay = (userId: number, id: string, time: number, heartbeat = time) => {
     store.sqlite.prepare(`INSERT INTO plays
       (id,user_id,session_hash,request_id,game_id,version,game_name,started_at,last_heartbeat_at)
-      VALUES (?,?,?,?,?,?,?,?,?)`).run(randomUUID(), userId, 'test-session', randomUUID(), id, '1.2.0', id, time, heartbeat);
+      VALUES (?,?,?,?,?,?,?,?,?)`).run(randomUUID(), userId, 'test-session', randomUUID(), id, '1.2.1', id, time, heartbeat);
   };
   await t.test('recent games deduplicate opens, order deterministically, cap at 12 and isolate accounts', async () => {
-    const visit = await req('/api/v1/games/signal-tap/plays', { version: '1.2.0', requestId: randomUUID() }, bob);
+    const visit = await req('/api/v1/games/signal-tap/plays', { version: '1.2.1', requestId: randomUUID() }, bob);
     assert.equal(visit.statusCode, 201);
     assert.equal((await library(bob)).recent[0].gameId, 'signal-tap');
     for (let i = 0; i < 15; i++) {
@@ -124,7 +124,7 @@ test('player library: private recent games, synced favorites, migrations and bac
     const recovered = openStore(restoredDir);
     const snapshots = Object.fromEntries(['users', 'games', 'plays', 'favorites'].map((table) => [table, store.sqlite.prepare(`SELECT * FROM ${table} ORDER BY rowid`).all()]));
     try {
-      assert.equal(recovered.sqlite.pragma('user_version', { simple: true }), 9);
+      assert.equal(recovered.sqlite.pragma('user_version', { simple: true }), 10);
       for (const [table, rows] of Object.entries(snapshots))
         assert.deepEqual(recovered.sqlite.prepare(`SELECT * FROM ${table} ORDER BY rowid`).all(), rows);
       assert.equal((recovered.sqlite.prepare('SELECT COUNT(*) AS n FROM sessions').get() as { n: number }).n, 0);
@@ -136,12 +136,12 @@ test('player library: private recent games, synced favorites, migrations and bac
     await restore(legacyBackup, path.join(root, 'v3-restored'));
     const restoredV3 = openStore(path.join(root, 'v3-restored'));
     try {
-      assert.equal(restoredV3.sqlite.pragma('user_version', { simple: true }), 9);
+      assert.equal(restoredV3.sqlite.pragma('user_version', { simple: true }), 10);
       assert.deepEqual(restoredV3.sqlite.prepare('SELECT * FROM plays ORDER BY rowid').all(), snapshots.plays);
     } finally { restoredV3.sqlite.close(); }
     const migrated = openStore(restoredDir);
     try {
-      assert.equal(migrated.sqlite.pragma('user_version', { simple: true }), 9);
+      assert.equal(migrated.sqlite.pragma('user_version', { simple: true }), 10);
       for (const table of ['users', 'games', 'plays'])
         assert.deepEqual(migrated.sqlite.prepare(`SELECT * FROM ${table} ORDER BY rowid`).all(), snapshots[table]);
       assert.deepEqual(migrated.sqlite.prepare('SELECT token_hash,csrf FROM sessions').get(), { token_hash: 'v3-session', csrf: 'v3-csrf' });

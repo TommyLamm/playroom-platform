@@ -1,6 +1,6 @@
 # 平台 API 與管理後台參考
 
-本文件供平台開發與管理使用；獨立遊戲的必要接入要求見 [遊戲開發與發布標準](game-development.md)。遊戲只透過 SDK 提交帳號成績，不直接呼叫下列 API。
+本文件供平台開發與管理使用；獨立遊戲的必要接入要求見 [遊戲開發與發布標準](game-development.md)。遊戲只透過 SDK 提交帳號成績與進度，不直接呼叫下列 API。
 
 ## 平台 API 摘要
 
@@ -15,6 +15,8 @@
 | `POST /register` | `{username,password}`，建立 `player` 並登入；不接受 `role` |
 | `POST /login` | `{username,password}`，設定 session cookie |
 | `POST /logout` | 登出並撤銷目前 session |
+| `GET /games/:id/save` | 登入本人私人雲端進度，無資料為 null；不接受帳號／使用者 query |
+| `POST /games/:id/save` | `{version,requestId,data,revision,formatVersion}`，JSON data ≤64 KiB、32 層；成功 `{saved:true,data,revision,formatVersion,gameVersion,updatedAt}`，過期 revision 為 409，相同請求可重試 |
 | `POST /visits` | 平台頁面用：`{requestId,kind,path,gameId?,version?,referrer?}`，kind 為 page_view／game_open；需要正確 Origin，不要求登入或 CSRF，每 IP 每分鐘最多 120 次；遊戲不得直接呼叫 |
 | `GET /me/settings` | 本人設定 `{careerVisibility,otherSessions}`；otherSessions 只計有效的其他 session，不接受指定其他帳號 |
 | `POST /me/settings` | `{careerVisibility}`，值為 public／limited／private，回傳更新後的本人設定 |
@@ -64,7 +66,9 @@
 
 平台管理員與數據分析員可在 `/api/v1/admin/visitors` 查看匿名及登入玩家的彙總訪客統計（UTC 7／30 天），`/api/v1/admin/visitors/records` 的個人活動明細僅平台管理員可讀。訪客 Cookie 由平台簽發並以雜湊識別；記錄保留 90 天，國家由伺服器按 IP 的本機 GeoIP 資料推算，未知或內網不強行指定國家。平台頁面負責送出瀏覽及公開遊戲 iframe 載入事件，無 SDK 遊戲亦能記開啟；遊戲本身不得取得訪客 IP／Cookie、直接呼叫 `/api/v1/visits` 或另行提交平台訪客統計。後台角色活動及預覽不納入，訪客開啟不代表完成一局或保存帳號成績，亦不改變生涯與成績 API 的權限。
 
-營運回應的磁碟總容量／可用空間與資料／遊戲檔案用量最多快取 30 秒，讀取失敗回傳 null，介面顯示「未知」；測量不追蹤符號連結。備份狀態為 `never`、`running`、`success` 或 `failed`，只表示平台備份指令記錄的狀態，不驗證備份目的地仍可用。schema v9 備份保留公開範圍設定、營運指標、訪客記錄、常用 GitHub 帳號、來源檢查、匯入批次與版本預覽確認，支援 schema v1–v9 還原；快照中的進行中狀態會轉為 failed 並提醒還原後重新備份。源資料庫在快照、檔案與雜湊清單全部完成後才記錄 success，避免宣稱尚未完成的備份成功。舊平台版本回退需使用升級前備份。
+營運回應的磁碟總容量／可用空間與資料／遊戲檔案用量最多快取 30 秒，讀取失敗回傳 null，介面顯示「未知」；測量不追蹤符號連結。備份狀態為 `never`、`running`、`success` 或 `failed`，只表示平台備份指令記錄的狀態，不驗證備份目的地仍可用。schema v10 備份保留私人雲端存檔、公開範圍設定、營運指標、訪客記錄、常用 GitHub 帳號、來源檢查、匯入批次與版本預覽確認，支援 schema v1–v10 還原；快照中的進行中狀態會轉為 failed 並提醒還原後重新備份。源資料庫在快照、檔案與雜湊清單全部完成後才記錄 success，避免宣稱尚未完成的備份成功。舊平台版本回退需使用升級前備份。
+
+雲端進度讀寫要求有效登入；寫入要求平台 Origin 與 CSRF，版本須曾公開且遊戲目前上架。資料依 user_id＋game_id 保存，讀取不提供指定他人的介面，生涯公開設定不公開進度。每帳號每分鐘最多 120 次讀取、60 次保存，跨 session 共用限制。資料量限制按 UTF-8 序列化計算，HTTP 寫入 body 上限 96 KiB；revision 初始 0、每次增加 1，transaction 保護衝突，同一 requestId 只可重試同一內容。schema v10 新增 cloud_saves 並納入備份；舊備份還原時自動升級。
 
 ## 管理後台流程
 

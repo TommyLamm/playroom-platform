@@ -101,7 +101,7 @@ export function openStore(dataDir: string) {
   sqlite.pragma('foreign_keys = ON');
   sqlite.pragma('busy_timeout = 5000');
   const version = sqlite.pragma('user_version', { simple: true }) as number;
-  if (version > 9) throw new Error('Database was created by a newer platform version');
+  if (version > 10) throw new Error('Database was created by a newer platform version');
   if (version === 0)
     sqlite.transaction(() => {
       sqlite.exec(`
@@ -255,6 +255,14 @@ export function openStore(dataDir: string) {
     if (!columns.some((c) => c.name === 'reviewed_by')) sqlite.exec('ALTER TABLE versions ADD COLUMN reviewed_by TEXT');
     if (!columns.some((c) => c.name === 'reviewed_at')) sqlite.exec('ALTER TABLE versions ADD COLUMN reviewed_at TEXT');
     sqlite.pragma('user_version = 9');
+  })();
+  if (version <= 9) sqlite.transaction(() => {
+    sqlite.exec(`CREATE TABLE IF NOT EXISTS cloud_saves (
+      user_id INTEGER NOT NULL REFERENCES users(id), game_id TEXT NOT NULL REFERENCES games(id),
+      data TEXT NOT NULL, revision INTEGER NOT NULL CHECK(revision>0), format_version INTEGER NOT NULL,
+      game_version TEXT NOT NULL, updated_at TEXT NOT NULL, request_id TEXT NOT NULL,
+      PRIMARY KEY(user_id,game_id)
+    ); PRAGMA user_version = 10;`);
   })();
   return { sqlite, db: drizzle(sqlite) };
 }

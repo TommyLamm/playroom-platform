@@ -83,7 +83,7 @@ npm run game:validate -- artifacts/game.zip
 - 平台全螢幕只顯示遊戲區域及右上角退出按鈕，隱藏平台工具列、成績狀態與預覽 SDK 診斷。支援時由平台頂層請求原生全螢幕並以 Keyboard Lock 鎖定 `Escape`，短按留給遊戲，長按可依瀏覽器機制退出；原生全螢幕或鎖定不可用／失敗時改用填滿網頁視窗的沉浸模式，一般瀏覽器模式仍保留網址列，使用右上角按鈕退出。遊戲不自行鎖定頂層鍵盤，也不依賴短按 Esc 退出平台播放器；Pointer Lock 的退出行為仍由瀏覽器控制。
 - 切換平台顯示模式不重載 iframe；遊戲需處理 iframe 尺寸變化，驗證一般／原生全螢幕／沉浸模式的操作區、遊戲內 Esc、退出及進度保留。管理預覽展開時 Esc 不關閉外層預覽，退出展開後恢復預覽對話框的 Esc 關閉行為。
 - iPhone 一般瀏覽器不能由平台強制移除網址列及工具列。平台提供「加入主畫面」指引與 `standalone` Web App 設定；從主畫面的 Playroom 圖示開啟後再進入遊戲，可移除瀏覽器網址列與工具列，但系統狀態列／手勢區及部分 iOS 版本的系統留邊仍可能保留，不能宣稱所有 iOS 版本完全無邊界。平台在展開時讓 iframe 避開安全區域；遊戲以實際 iframe 尺寸佈局，驗證手機直橫向的操作區。
-- 主畫面 Web App 不提供離線遊玩或存檔搬移。瀏覽器與主畫面版本的 Cookie／儲存可能隔離，可能需要重新登入，`localStorage` 存檔不保證共用；帳號成績依 SDK 登入提交，不能把主畫面安裝視為雲端存檔功能。須以 iOS 實機驗收安裝、從圖示開啟、遊玩、退出、旋轉與登入／存檔狀態，桌面 Chrome 模擬不能代替實機通過。
+- 主畫面 Web App 不提供離線遊玩或本機存檔搬移。瀏覽器與主畫面版本的 Cookie／儲存可能隔離，可能需要重新登入；接入雲端存檔的遊戲會讀取同一帳號的伺服器進度，`localStorage` 存檔仍不保證共用。須以 iOS 實機驗收安裝、從圖示開啟、遊玩、退出、旋轉與登入／存檔狀態，桌面 Chrome 模擬不能代替實機通過。
 - `localStorage` 由遊戲自行管理，使用例如 `my-first-game:save:v1` 的 key。預覽與已發布版本共用遊戲來源，可能共享存檔；請在升級資料格式時保留相容性，儲存不可用時仍能遊玩。
 - 遊戲檔案應自包含。若自行連接外部服務，該服務的 CORS、可用性與資料處理由遊戲負責。
 
@@ -91,7 +91,7 @@ npm run game:validate -- artifacts/game.zip
 
 ## 帳號成績 SDK 與排行榜
 
-此功能為選填。未接入的遊戲仍可遊玩，平台會為登入玩家記錄開啟次數及估計活躍時間，但不知道完成局數與分數。訪客及管理預覽不寫入帳號記錄；進度存檔仍由各遊戲自行管理，SDK 不提供雲端進度存檔。
+成績接入為選填。未接入的遊戲仍可遊玩，平台會為登入玩家記錄開啟次數及估計活躍時間，但不知道完成局數與分數。訪客及管理預覽不寫入帳號記錄；遊戲進度可另接入下述雲端存檔，不依賴成績排行榜。
 
 在 `game.json` 加入榜單設定，例如：
 
@@ -139,7 +139,43 @@ async function onRoundFinish(finalScore) {
 }
 ```
 
-`ready()` 回傳 `{available, mode}`；`available` 表示登入且遊戲宣告榜單，可以保存帳號成績。`startRun()` 回傳 `{runId}`，訪客、獨立開啟及一般未啟用診斷的預覽回傳 `null`。`finishRun({runId,score})` 正式保存成功回傳 `{saved:true,runId,score,finishedAt}`，失敗會拒絕 Promise；同一局同分重試不會增加紀錄，不能改寫已保存的分數。開始局次失敗時仍需可遊玩，但該局沒有可提交的 ID。開始新一局時保留上一局正在提交的 Promise，避免把前一局成績綁到新一局。
+`ready()` 回傳 `{available, progressAvailable, mode}`；`available` 表示登入且遊戲宣告榜單，可以保存帳號成績。`startRun()` 回傳 `{runId}`，訪客、獨立開啟及一般未啟用診斷的預覽回傳 `null`。`finishRun({runId,score})` 正式保存成功回傳 `{saved:true,runId,score,finishedAt}`，失敗會拒絕 Promise；同一局同分重試不會增加紀錄，不能改寫已保存的分數。開始局次失敗時仍需可遊玩，但該局沒有可提交的 ID。開始新一局時保留上一局正在提交的 Promise，避免把前一局成績綁到新一局。
+
+### 帳號雲端進度存檔
+
+需要保留關卡、解鎖、背包或設定的遊戲，使用新版 SDK 的 `loadProgress()` 與 `saveProgress()`。不需新增 Manifest 欄位或宣告排行榜。`ready()` 額外回傳 `progressAvailable`；它與成績用的 `available` 分開，只有正式登入且平台支援雲端存檔時為 true。伺服器按帳號 ID＋遊戲 ID 保存一份私人進度，跨設備與主畫面 Web App 共用；版本更新沿用相同遊戲 ID 的存檔。
+
+```js
+const { progressAvailable } = await Playroom.ready();
+let revision = null; // 讀取失敗時絕不能當成沒有存檔。
+if (progressAvailable) {
+  try {
+    const saved = await Playroom.loadProgress();
+    if (saved) {
+      // 先驗證 formatVersion 與 data，遷移相容格式後再套用到遊戲。
+      restoreProgress(saved.data, saved.formatVersion);
+    }
+    revision = saved?.revision ?? 0;
+  } catch (error) {
+    showLoadError(error); // 允許繼續遊玩，但禁止以空白進度覆蓋雲端。
+  }
+}
+async function saveCheckpoint(data) {
+  if (revision === null) return;
+  const input = { data, revision, formatVersion: 1, requestId: crypto.randomUUID() };
+  // 序列化同一遊戲的保存操作；連線失敗重試須沿用同一 input／requestId。
+  const saved = await Playroom.saveProgress(input);
+  if (saved?.saved === true) revision = saved.revision;
+}
+```
+
+`loadProgress()` 成功回傳 `{data,revision,formatVersion,gameVersion,updatedAt}`，沒有存檔時為 `null`；網路、登入或服務失敗會拒絕 Promise，不能當成空存檔。`saveProgress({data,revision,formatVersion,requestId?})` 在正式保存成功後回傳 `{saved:true,...上述欄位}`；未登入、獨立開啟或平台不支援時回傳 `null`。只有 `saved:true` 才顯示已保存；平台工具列的「重試保存」處理成績，進度重試由遊戲負責。SDK 錯誤可帶數字 `code`，409 表示進度衝突、401／403 表示登入或授權失效。
+
+`data` 為 JSON 物件，UTF-8 序列化最多 64 KiB、最多 32 層，不包含 undefined、函式、BigInt、非有限數字或循環引用；`formatVersion` 為正安全整數，由遊戲管理遷移。`revision` 為伺服器版本，首次成功讀到 `null` 才用 0，保存成功後使用回傳的新版本。另一台設備已更新時回傳 409，不自動提高 revision 或重試覆蓋；重新讀取最新進度，再提示玩家選擇／合併。網路失敗可能是回應遺失，重試同一快照須沿用 requestId；相同請求不重複增加版本。每帳號每分鐘最多 60 次保存、120 次讀取，使用關卡／解鎖檢查點或節流自動保存，不逐畫格上傳；不要依賴關閉頁面時的最後一筆寫入。
+
+訪客本機存檔與帳號存檔分開，不自動把共用 localStorage 進度匯入帳號，不跨帳號保留待提交快照。登入帳號載入雲端後再允許修改其進度；帳號切換、登入失效後取消待提交操作。遊戲自行驗證存檔內容，不能把玩家可寫的進度當成可信榜單成績。下架保留資料但停止讀寫，再次上架可繼續；平台備份／還原包含進度。既有遊戲必須更新 SDK、接入讀取與檢查點保存並提高遊戲版本，平台不會自動擷取 localStorage。範例 1.2.1 示範帳號最佳紀錄的讀寫，訪客仍使用本機紀錄。
+
+管理診斷預覽的進度只暫存於當前連線記憶體；`saveProgress()` 驗證後回傳 `null`，`loadProgress()` 可讀該預覽暫存，重開預覽清除，不讀寫正式帳號存檔。驗收兩個獨立登入瀏覽器的關卡／物品恢復、不同帳號與遊戲隔離、衝突、首次載入失敗、保存重試、session 失效、相容與不相容版本，以及預覽不保存。
 
 ### 管理預覽 SDK 診斷
 
@@ -149,7 +185,7 @@ async function onRoundFinish(finalScore) {
 
 模擬局次不能拿到正式遊玩使用；不要把 `runId` 視為已保存證明，只有正式模式 `finishRun()` 回傳的 `saved:true` 才代表保存成功。面板不顯示預覽 URL、Cookie、CSRF token 或原始訊息。清除事件只清空列表，重新開始才會重建連線及模擬局次。更新 SDK 後提高遊戲版本再匯入，不覆寫已匯入版本。診斷不能代替真實遊玩、手機與帳號保存驗收。
 
-SDK 以版本 1 的 `playroom` postMessage 協定與當前大廳 iframe 連線，只提供局次開始與完成操作。SDK 驗證父視窗，初始化後固定父來源及連線 ID；大廳驗證遊戲來源、目前 iframe、連線 ID、訊息結構與局次歸屬，再以大廳自己的憑證提交。平台 Cookie、CSRF token 及管理功能不會交給遊戲。切換帳號、重新載入或登入失效後需重新開啟遊戲；不要把局次 ID 或待提交成績跨帳號儲存。
+SDK 以版本 1 的 `playroom` postMessage 協定與當前大廳 iframe 連線，提供局次開始、完成及帳號雲端進度讀寫操作。SDK 驗證父視窗，初始化後固定父來源及連線 ID；大廳驗證遊戲來源、目前 iframe、連線 ID、訊息結構與局次歸屬，再以大廳自己的憑證提交。平台 Cookie、CSRF token 及管理功能不會交給遊戲。切換帳號、重新載入或登入失效後需重新開啟遊戲；不要把局次 ID 或待提交成績跨帳號儲存。
 
 工具列的「重試保存」只保留目前頁面的待提交結果，離開／重新載入會清除；顯示成功前不能稱為已保存。此版榜單為休閒用途，限流及數值驗證不能證明前端分數真實，競技用途需要額外的伺服器結果驗證。既有瀏覽器最佳分數不會匯入帳號。
 

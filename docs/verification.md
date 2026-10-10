@@ -191,3 +191,15 @@ Playwright CLI 在隔離的臨時平台檢查 1440px、768px、390px、320px。�
 已檢視 `output/playwright/home-screen-guide-mobile.png`、`home-screen-safe-area-mobile.png` 與主畫面圖示。README、開發規格及遊戲 Agent 範本同次同步，線上規格連結仍追蹤 `main`。未部署正式環境，未在 iOS 實機安裝、從主畫面啟動或驗證瀏覽器／Web App 間的登入與存檔狀態。
 
 依 [Apple 主畫面 Web App 說明](https://developer.apple.com/library/archive/documentation/AppleApplications/Reference/SafariWebContent/ConfiguringWebApplications/ConfiguringWebApplications.html)，主畫面 standalone 模式可移除瀏覽器網址列與工具列。iPhone 一般元素 Fullscreen API 的 [WebKit 206854](https://bugs.webkit.org/show_bug.cgi?id=206854) 仍在追蹤；部分 iOS 版本的主畫面狀態列／系統留邊亦有 [WebKit 301994](https://bugs.webkit.org/show_bug.cgi?id=301994) 紀錄，不能以 CSS 保證全部隱藏。正式驗收需在目標 iOS 版本以 Safari 加入主畫面，從 Playroom 圖示啟動、登入、進入遊戲、展開／退出及旋轉，確認網址列／工具列移除、退出與遊戲控制未被安全區遮擋，並分別檢查瀏覽器與主畫面版本的本機存檔。
+
+## 帳號雲端進度存檔（2026-10-10）
+
+新增私人帳號＋遊戲 ID 的 JSON 快照存檔、revision 衝突保護、同一 requestId 重試去重、讀寫限流與 SDK loadProgress／saveProgress。成績與進度能力分開，無排行榜亦可存進度；預覽只暫存，不接觸正式資料。schema v1–v9 自動升級至 v10，備份還原保留存檔並清除 session。範例遊戲提高至 1.2.1，登入讀寫帳號最佳紀錄，訪客保留本機紀錄，不自動匯入舊 localStorage。既有外部遊戲尚須更新 SDK 並接入自己的進度模型，平台不會擷取或改寫它們的本機存檔。
+
+本機 npm run typecheck、npm run build、npm test 通過（132 項）；headed Chrome 的 cloud-save、career、progress-preview、home-screen 四組 Playwright 共 20 項通過。真實跨來源 iframe 使用 SDK 寫入進度，另一個獨立瀏覽器登入讀回相同資料；驗證回應遺失重試、過期 revision 拒絕、訪客隔離、偽造來源拒絕、session 失效，以及首次讀取失敗後完成遊戲不覆蓋雲端、預覽只用暫存。另保留成績失敗提示，避免進度成功蓋掉未保存的成績。後端覆蓋帳號／遊戲隔離、Origin／CSRF、格式／容量／深度、下架、共用帳號限流、v9 升級及備份還原；既有全部後端測試通過。沒有宣稱真實 iOS 設備或外部遊戲已完成接入驗收。
+
+已依使用者明確授權，透過 SSH 在 root@103.199.19.41 的 /root/playroom-platform/output/cloud-save-test-20261010 測試。快照 source.tar.gz 的本機與遠端 SHA-256 都為 e15eead23c59b8369d7a9e0e8dd97a075feba3d46be47931be37803da3ccad7f；排除 .env、金鑰、node_modules 與玩家資料。獨立 Docker 建置執行 typecheck、build、全部 132 項後端測試，均通過；完整輸出保留在該目錄 build.log，映像為 playroom-cloud-save-test:20261010（sha256:fe03e3a73998623c701b781889041a42379776fc7c6487a6a798ce7c9853fe7e）。
+
+scripts/cloud-save-smoke.mjs 在專用 runtime 容器透過實際 HTTP 建立兩個測試帳號，驗證同帳號另一個登入讀回進度、相同請求去重、過期 revision 409、Origin／CSRF／額外 userId 拒絕、訪客及帳號／遊戲隔離、登出失效。只重啟專用容器後重新登入，revision 2、stage 8、背包與最佳紀錄保留；將專用資料庫備份／還原到另一個新 volume，再啟動第二個容器，重新登入讀回相同進度。write、重啟後 verify、還原後 verify 三次 HTTP 驗證均通過。遠端不對外開放測試連接埠，也未對正式玩家帳號發送寫入。
+
+測試結束停止並移除兩個專用容器與三個測試 volume，保留快照、測試腳本與建置日誌供核對；部署 checkout 的 git status 仍乾淨，正式 app／updater 皆 running／healthy。本次未操作正式 app、updater 或玩家資料，未提交、推送或部署；外部遊戲仍須另外更新 SDK、接入存檔並按發布流程提高版本。遠端新增驗證是 HTTP 與 Docker runtime，跨來源 iframe 的兩個獨立瀏覽器驗證在本機 Chrome 執行，未宣稱真實 iOS 設備已驗收。

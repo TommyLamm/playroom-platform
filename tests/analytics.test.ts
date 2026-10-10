@@ -29,7 +29,7 @@ test('admin operational analytics and backup telemetry', async (t) => {
   const alice = auth(await req('/api/v1/register', { username: 'analytics-alice', password: 'analytics-password' }));
   const bob = auth(await req('/api/v1/register', { username: 'analytics-bob', password: 'analytics-password' }));
   async function open(headers: Headers, game = 'signal-tap') {
-    const response = await req(`/api/v1/games/${game}/plays`, { version: '1.2.0', requestId: randomUUID() }, headers);
+    const response = await req(`/api/v1/games/${game}/plays`, { version: '1.2.1', requestId: randomUUID() }, headers);
     assert.equal(response.statusCode, 201, response.body); return response.json().playId as string;
   }
   async function run(headers: Headers, playId: string) {
@@ -177,7 +177,7 @@ test('analytics storage failures show unknown and schema4 backups remain compati
   await restore(path.join(root, 'legacy-backup'), path.join(root, 'legacy-restored'));
   const restored = openStore(path.join(root, 'legacy-restored'));
   try {
-    assert.equal(restored.sqlite.pragma('user_version', { simple: true }), 9);
+    assert.equal(restored.sqlite.pragma('user_version', { simple: true }), 10);
     assert.equal(readBackupState(restored.sqlite).status, 'never');
   } finally { restored.sqlite.close(); }
 });

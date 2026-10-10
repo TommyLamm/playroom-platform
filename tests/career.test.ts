@@ -29,7 +29,7 @@ test('careers and scores: ownership, idempotency, ranking, rules, activity and r
   }
   const alice = await register('alice');
   const bob = await register('bob');
-  async function open(headers: Headers, version = '1.2.0') {
+  async function open(headers: Headers, version = '1.2.1') {
     const response = await req('/api/v1/games/signal-tap/plays', { version, requestId: randomUUID() }, headers);
     assert.equal(response.statusCode, 201, response.body);
     return response.json().playId as string;
@@ -65,8 +65,8 @@ test('careers and scores: ownership, idempotency, ranking, rules, activity and r
     const duplicate = await req(`/api/v1/plays/${alicePlay}/runs`, { requestId }, alice);
     assert.equal(first.json().runId, duplicate.json().runId);
     const visitId = randomUUID();
-    const visit = await req('/api/v1/games/signal-tap/plays', { version: '1.2.0', requestId: visitId }, alice);
-    const again = await req('/api/v1/games/signal-tap/plays', { version: '1.2.0', requestId: visitId }, alice);
+    const visit = await req('/api/v1/games/signal-tap/plays', { version: '1.2.1', requestId: visitId }, alice);
+    const again = await req('/api/v1/games/signal-tap/plays', { version: '1.2.1', requestId: visitId }, alice);
     assert.equal(visit.json().playId, again.json().playId);
     const history = (await req('/api/v1/me/results', undefined, alice)).json();
     assert.equal(history.total, 1);
@@ -146,14 +146,14 @@ test('careers and scores: ownership, idempotency, ranking, rules, activity and r
     await restore(destination, restoredDir);
     const recovered = openStore(restoredDir);
     try {
-      assert.equal(recovered.sqlite.pragma('user_version', { simple: true }), 9);
+      assert.equal(recovered.sqlite.pragma('user_version', { simple: true }), 10);
       for (const table of ['plays', 'runs', 'best_scores']) assert.deepEqual(recovered.sqlite.prepare(`SELECT * FROM ${table} ORDER BY rowid`).all(), store.sqlite.prepare(`SELECT * FROM ${table} ORDER BY rowid`).all());
       assert.equal((recovered.sqlite.prepare('SELECT COUNT(*) n FROM sessions').get() as { n: number }).n, 0);
       recovered.sqlite.exec('DROP TABLE import_batch_items; DROP TABLE import_batches; DROP TABLE github_owners; ALTER TABLE repositories DROP COLUMN archived; ALTER TABLE repositories DROP COLUMN checked_at; ALTER TABLE repositories DROP COLUMN check_error; ALTER TABLE repositories DROP COLUMN cached_releases; DROP TABLE visitor_events; DROP TABLE account_settings; DROP TABLE score_submission_metrics; DROP TABLE operational_state; DROP TABLE favorites; DROP TABLE best_scores; DROP TABLE runs; DROP TABLE plays; PRAGMA user_version=2;');
     } finally { recovered.sqlite.close(); }
     const upgraded = openStore(restoredDir);
     try {
-      assert.equal(upgraded.sqlite.pragma('user_version', { simple: true }), 9);
+      assert.equal(upgraded.sqlite.pragma('user_version', { simple: true }), 10);
       assert.equal((upgraded.sqlite.prepare('SELECT COUNT(*) n FROM users').get() as { n: number }).n, 2);
     } finally { upgraded.sqlite.close(); }
   });
@@ -179,14 +179,14 @@ test('careers and scores: ownership, idempotency, ranking, rules, activity and r
     assert.equal((await finish(pending, 50, bob)).statusCode, 401);
     let limited = false;
     for (let i = 0; i < 35; i++) {
-      const response = await req('/api/v1/games/signal-tap/plays', { version: '1.2.0', requestId: randomUUID() }, newBob);
+      const response = await req('/api/v1/games/signal-tap/plays', { version: '1.2.1', requestId: randomUUID() }, newBob);
       if (response.statusCode === 429) { limited = true; break; }
       assert.equal(response.statusCode, 201, response.body);
     }
     assert.ok(limited);
     const loginAgain = await req('/api/v1/login', { username: 'bob', password: 'career-player-password' });
     const newestBob = { cookie: String(loginAgain.headers['set-cookie']).split(';')[0], 'x-csrf-token': loginAgain.json().csrf };
-    assert.equal((await req('/api/v1/games/signal-tap/plays', { version: '1.2.0', requestId: randomUUID() }, newestBob)).statusCode, 429);
+    assert.equal((await req('/api/v1/games/signal-tap/plays', { version: '1.2.1', requestId: randomUUID() }, newestBob)).statusCode, 429);
   });
   await t.test('top 100 remains bounded while a player outside the list still sees their rank', async () => {
     store.sqlite.transaction(() => {
@@ -195,7 +195,7 @@ test('careers and scores: ownership, idempotency, ranking, rules, activity and r
         const playId = randomUUID();
         const runId = randomUUID();
         const now = Date.now();
-        store.sqlite.prepare('INSERT INTO plays (id,user_id,session_hash,request_id,game_id,version,game_name,board_id,started_at,last_heartbeat_at) VALUES (?,?,?,?,?,?,?,?,?,?)').run(playId, userId, 'test-only', randomUUID(), 'signal-tap', '1.2.0', '光點反應', 'classic', now, now);
+        store.sqlite.prepare('INSERT INTO plays (id,user_id,session_hash,request_id,game_id,version,game_name,board_id,started_at,last_heartbeat_at) VALUES (?,?,?,?,?,?,?,?,?,?)').run(playId, userId, 'test-only', randomUUID(), 'signal-tap', '1.2.1', '光點反應', 'classic', now, now);
         store.sqlite.prepare('INSERT INTO runs (id,play_id,request_id,started_at,score,finished_at) VALUES (?,?,?,?,?,?)').run(runId, playId, randomUUID(), now, 1000 + i, now);
         store.sqlite.prepare('INSERT INTO best_scores VALUES (?,?,?,?,?,?)').run(userId, 'signal-tap', 'classic', 1000 + i, now, runId);
       }

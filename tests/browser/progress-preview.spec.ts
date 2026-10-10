@@ -111,7 +111,7 @@ test('admin preview diagnoses SDK runs and errors without saving account records
   const panel = page.getByRole('region', { name: 'SDK 診斷面板', exact: true });
   await expect(panel).toContainText('SDK 已連線');
   await expect(panel).toContainText('classic');
-  await expect(panel).toContainText('1.2.0');
+  await expect(panel).toContainText('1.2.1');
   await page.clock.install();
   const game = page.frameLocator('iframe');
   await game.locator('#start').click();

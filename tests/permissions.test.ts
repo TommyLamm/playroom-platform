@@ -146,7 +146,7 @@ test('v7 role constraint migrates without changing account IDs, sessions or refe
   store.sqlite.close();
   const upgraded = openStore(root);
   try {
-    assert.equal(upgraded.sqlite.pragma('user_version', { simple: true }), 9);
+    assert.equal(upgraded.sqlite.pragma('user_version', { simple: true }), 10);
     assert.equal(upgraded.db.select().from(users).all()[0].password, password);
     assert.equal((upgraded.sqlite.prepare('SELECT user_id FROM sessions').get() as { user_id: number }).user_id, 5);
     assert.equal((upgraded.sqlite.prepare('SELECT career_visibility FROM account_settings WHERE user_id=5').get() as { career_visibility: string }).career_visibility, 'private');

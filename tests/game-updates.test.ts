@@ -118,7 +118,7 @@ test('v9 approval survives reopening and backup/restore; v8 backups migrate with
   await restore(path.join(root, 'v9-backup'), path.join(root, 'v9-restored'));
   const restored = openStore(path.join(root, 'v9-restored'));
   try {
-    assert.equal(restored.sqlite.pragma('user_version', { simple: true }), 9);
+    assert.equal(restored.sqlite.pragma('user_version', { simple: true }), 10);
     assert.deepEqual(restored.db.select().from(versions).all(), before);
     restored.sqlite.exec('ALTER TABLE versions DROP COLUMN reviewed_by; ALTER TABLE versions DROP COLUMN reviewed_at; PRAGMA user_version=8;');
   } finally { restored.sqlite.close(); }
@@ -126,7 +126,7 @@ test('v9 approval survives reopening and backup/restore; v8 backups migrate with
   await restore(path.join(root, 'v8-backup'), path.join(root, 'v8-restored'));
   const upgraded = openStore(path.join(root, 'v8-restored'));
   try {
-    assert.equal(upgraded.sqlite.pragma('user_version', { simple: true }), 9);
+    assert.equal(upgraded.sqlite.pragma('user_version', { simple: true }), 10);
     assert.ok(upgraded.db.select().from(versions).all().every((v) => v.reviewedAt === null && v.reviewedBy === null));
     assert.equal(upgraded.db.select().from(games).all().find((g) => g.id === 'alpha')!.activeVersion, '1.0.0');
     assert.deepEqual(upgraded.sqlite.pragma('foreign_key_check'), []);

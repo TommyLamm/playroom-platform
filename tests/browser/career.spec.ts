@@ -50,7 +50,7 @@ test('account scores persist, public summaries stay separate from private result
   await expect(page.locator('.record-status')).toContainText('成績已保存');
   const results = await (await page.request.get('/api/v1/me/results')).json();
   expect(results.total).toBe(1);
-  expect(results.results[0]).toMatchObject({ score: 1, version: '1.2.0', boardId: 'classic' });
+  expect(results.results[0]).toMatchObject({ score: 1, version: '1.2.1', boardId: 'classic' });
   const session = await (await page.request.get('/api/v1/session')).json();
   const duplicate = await page.request.post(`/api/v1/runs/${results.results[0].id}/finish`, { headers: { Origin: 'http://localhost:3070', 'X-CSRF-Token': session.csrf }, data: { score: 1 } });
   expect(duplicate.status()).toBe(200);

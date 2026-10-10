@@ -11,7 +11,9 @@ const runId = '00000000-0000-4000-8000-000000000002';
 
 type Message = Record<string, unknown>;
 type Sdk = {
-  ready(): Promise<{ available: boolean; mode: string }>;
+  ready(): Promise<{ available: boolean; progressAvailable: boolean; mode: string }>;
+  loadProgress(): Promise<{ data: Record<string, unknown>; revision: number } | null>;
+  saveProgress(input: { data: Record<string, unknown>; revision: number; formatVersion: number; requestId?: string }): Promise<{ saved: true; revision: number } | null>;
   startRun(): Promise<{ runId: string } | null>;
   finishRun(result: { runId: string; score: number }): Promise<{ saved: true } | null>;
 };
@@ -46,8 +48,8 @@ function harness(standalone = false) {
     send(data: Message, overrides: { source?: unknown; origin?: string } = {}) {
       receive({ source: parent, origin, data, ...overrides });
     },
-    init(mode: string, diagnostics = false, scoring = true) {
-      receive({ source: parent, origin, data: { protocol: 'playroom', version: 1, type: 'init', connection, mode, diagnostics, scoring } });
+    init(mode: string, diagnostics = false, scoring = true, progress = false) {
+      receive({ source: parent, origin, data: { protocol: 'playroom', version: 1, type: 'init', connection, mode, diagnostics, scoring, progress } });
     },
     respond(request: Message, result: unknown, overrides: Message = {}) {
       receive({ source: parent, origin, data: { protocol: 'playroom', version: 1, type: 'response', connection, requestId: request.requestId, result, ...overrides } });
@@ -63,6 +65,44 @@ function harness(standalone = false) {
 }
 
 async function flush() { await Promise.resolve(); await Promise.resolve(); }
+
+test('SDK cloud capability is independent of scoring and retries preserve request identity', async () => {
+  const h = harness();
+  h.init('authenticated', false, false, true);
+  const ready = await h.sdk.ready();
+  assert.equal(ready.available, false);
+  assert.equal(ready.progressAvailable, true);
+  const loading = h.sdk.loadProgress();
+  await flush();
+  h.respond(h.requests()[0].data, { data: { stage: 3 }, revision: 4 });
+  assert.equal((await loading)?.revision, 4);
+  const input = { data: { stage: 4 }, revision: 4, formatVersion: 1, requestId: runId };
+  const saving = h.sdk.saveProgress(input);
+  const rejected = assert.rejects(saving, (error: unknown) => (error as Error & { code: number }).code === 409);
+  await flush();
+  h.respond(h.requests()[1].data, null, { error: '進度版本衝突', errorCode: 409 });
+  await rejected;
+  const retry = h.sdk.saveProgress(input);
+  await flush();
+  assert.equal(h.requests()[2].data.requestId, runId);
+  h.respond(h.requests()[2].data, { saved: true, revision: 5 });
+  assert.equal((await retry)?.revision, 5);
+  assert.equal(await h.sdk.startRun(), null);
+});
+
+test('SDK cloud writes never claim persistence in guest, standalone or preview mode', async () => {
+  for (const mode of ['guest', 'standalone', 'preview']) {
+    const h = harness(mode === 'standalone');
+    if (mode === 'standalone') h.expire(8000);
+    else h.init(mode, mode === 'preview', false, true);
+    assert.equal((await h.sdk.ready()).progressAvailable, false);
+    const saving = h.sdk.saveProgress({ data: { stage: 1 }, revision: 0, formatVersion: 1 });
+    await flush();
+    if (mode === 'preview') h.respond(h.requests()[0].data, { saved: true });
+    assert.equal(await saving, null);
+    if (mode !== 'preview') assert.equal(h.requests().length, 0);
+  }
+});
 
 test('SDK guest, ordinary preview and unconfigured game remain playable without score requests', async () => {
   for (const config of [{ mode: 'guest', scoring: true }, { mode: 'preview', scoring: true }, { mode: 'authenticated', scoring: false }]) {

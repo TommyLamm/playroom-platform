@@ -27,6 +27,7 @@ import type { Config } from './config.js';
 import { AppError } from './errors.js';
 import { registrationSchema, type Session as PublicSession } from '../shared/account.js';
 import { registerCareer } from './career.js';
+import { registerCloudSave } from './cloud-save.js';
 import { registerPlayerLibrary } from './player-library.js';
 import { registerAccountSettings } from './account-settings.js';
 import { registerAnalytics } from './analytics.js';
@@ -137,6 +138,7 @@ export async function createApplication(
   const requireAnalytics = requirePermission('analytics.read');
   const requirePlatform = requirePermission('platform.manage');
   registerCareer(platform, store, requireUser);
+  registerCloudSave(platform, store, requireUser);
   registerPlayerLibrary(platform, store, requireUser);
   registerAnalytics(platform, store, config, requireAnalytics);
   registerVisitors(platform, store, config, requireAnalytics, requirePermission('visitors.read'));

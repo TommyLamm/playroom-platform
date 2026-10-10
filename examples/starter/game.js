@@ -11,9 +11,25 @@ const status = document.getElementById('status');
 const result = document.getElementById('result');
 const storageKey = colors ? 'playroom-color-best' : 'playroom-signal-best';
 let best = 0;
-try {
-  best = Number(localStorage.getItem(storageKey)) || 0;
-} catch {}
+let cloudRevision = null;
+let cloudQueue = Promise.resolve();
+let cloudEnabled = false;
+start.disabled = true;
+const sdk = await Playroom.ready();
+cloudEnabled = sdk.progressAvailable;
+if (cloudEnabled) {
+  try {
+    const saved = await Playroom.loadProgress();
+    if (saved && (saved.formatVersion !== 1 || !Number.isSafeInteger(saved.data.best) || saved.data.best < 0)) throw new Error('不支援此存檔格式');
+    best = saved?.data.best ?? 0;
+    cloudRevision = saved?.revision ?? 0;
+  } catch {
+    result.textContent = '未能讀取帳號進度；仍可遊玩，但本頁不會覆蓋雲端存檔。請重新開啟遊戲重試。';
+  }
+} else if (sdk.mode === 'guest' || sdk.mode === 'standalone') {
+  try { best = Number(localStorage.getItem(storageKey)) || 0; } catch {}
+}
+start.disabled = false;
 let score = 0;
 let target = colors ? 7 : 12;
 let running = false;
@@ -65,9 +81,9 @@ function finish() {
   running = false;
   clearInterval(timer);
   best = Math.max(best, score);
-  try {
-    localStorage.setItem(storageKey, String(best));
-  } catch {}
+  if (!cloudEnabled && (sdk.mode === 'guest' || sdk.mode === 'standalone')) {
+    try { localStorage.setItem(storageKey, String(best)); } catch {}
+  }
   bestEl.textContent = format(best);
   timeEl.innerHTML = '00<span>s</span>';
   status.textContent = 'NICELY DONE';
@@ -76,6 +92,22 @@ function finish() {
   result.textContent = `這次找到 ${score} ${colors ? '個色塊' : '道光'}，最佳紀錄 ${best} 分。`;
   const finalScore = score;
   void accountRun.then((run) => run && Playroom.finishRun({ runId: run.runId, score: finalScore })).catch(() => {});
+  if (cloudEnabled && cloudRevision !== null) {
+    const finalBest = best;
+    cloudQueue = cloudQueue.then(async () => {
+      if (cloudRevision === null) return;
+      const input = { data: { best: finalBest }, revision: cloudRevision, formatVersion: 1, requestId: crypto.randomUUID() };
+      // One retry keeps the same request identity, including when the response was lost.
+      let saved;
+      try { saved = await Playroom.saveProgress(input); }
+      catch (error) { if (error.code === 409 || error.code === 401 || error.code === 403) throw error; saved = await Playroom.saveProgress(input); }
+      if (saved?.saved) cloudRevision = saved.revision;
+      else throw new Error('進度未保存');
+    }).catch(() => {
+      cloudRevision = null;
+      result.textContent = '進度尚未保存，或另一台設備已更新；請重新開啟遊戲讀取最新存檔。';
+    });
+  }
 }
 start.addEventListener('click', () => {
   accountRun = Playroom.startRun().catch(() => null);
