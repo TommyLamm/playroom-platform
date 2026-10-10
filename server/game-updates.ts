@@ -6,6 +6,7 @@ import { gameId, gameVersion } from '../shared/manifest.js';
 import { AppError } from './errors.js';
 import { publish } from './library.js';
 import type { PublishSelection, PublishResult } from '../shared/game-updates.js';
+import { compareVersions } from '../shared/game-updates.js';
 
 export function publishReviewed(store: Store, id: string, version: string, expected?: PublishSelection): 'published' | 'skipped' {
   return store.db.transaction(() => {
@@ -15,6 +16,9 @@ export function publishReviewed(store: Store, id: string, version: string, expec
     if (game.published && game.activeVersion === version) return 'skipped';
     if (expected && (game.activeVersion !== expected.expectedActiveVersion || game.published !== expected.expectedPublished))
       throw new AppError(409, '上架狀態已由其他管理者修改，請刷新並重新確認');
+    if (game.activeVersion && compareVersions(version, game.activeVersion) <= 0 &&
+        (!stored.publishedAt || expected && version !== game.activeVersion))
+      throw new AppError(409, '更新版本必須高於目前版本；歷史版本回退請使用「遊戲與版本」');
     if (!stored.publishedAt && !stored.reviewedAt) throw new AppError(409, '請先預覽並確認此版本通過驗收');
     publish(store, id, version);
     return 'published';

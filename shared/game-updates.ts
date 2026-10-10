@@ -34,7 +34,10 @@ export function updateRelease(source: Source, game?: AdminGame) {
   const release = defaultRelease(source.releases, source.importedReleaseIds);
   return release && (!game?.activeVersion || compareVersions(release.tag.slice(1), game.activeVersion) > 0) ? release : undefined;
 }
-export function pendingVersion(game: AdminGame): StoredVersion | undefined {
-  return game.versions.find((v) => !v.publishedAt && !v.version.includes('-') &&
+export function pendingVersions(game: AdminGame): StoredVersion[] {
+  return game.versions.filter((v) => !v.publishedAt &&
     (!game.activeVersion || compareVersions(v.version, game.activeVersion) > 0));
+}
+export function pendingVersion(game: AdminGame): StoredVersion | undefined {
+  return pendingVersions(game).find((v) => !v.version.includes('-'));
 }

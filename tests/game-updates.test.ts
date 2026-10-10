@@ -11,6 +11,7 @@ import { passwordHash } from '../server/auth.js';
 import { installVersion, publish, adminLibrary } from '../server/library.js';
 import { backup, restore } from '../server/maintenance.js';
 import { compareVersions, pendingVersion, updateRelease } from '../shared/game-updates.js';
+import { updateRows, isPendingUpdate } from '../client/game-update-model.js';
 import type { AdminGame, Release } from '../shared/types.js';
 import type { Source } from '../shared/sources.js';
 import { fakeGitHub, testManifest } from './helpers.js';
@@ -49,6 +50,8 @@ test('shutdown releases HTTP handlers awaiting quota-paused checks', { timeout: 
   for (let i = 0; i < 4; i++) ids.push((await req('/repositories', { fullName: `shutdown/game-${i}` })).json().repository.id);
   github.releases = async () => { throw new GitHubRateLimitError(Date.now() + 3600000); };
   assert.equal((await req('/source-checks', {})).statusCode, 202);
+  const paused = await req(`/repositories/${ids[0]}/check`, {});
+  assert.equal(paused.statusCode, 200); assert.match(paused.json().source.checkError, /額度/);
   const waiting = req(`/repositories/${ids[3]}/check`, {}).then((response) => response.statusCode);
   await new Promise<void>((resolve) => setImmediate(resolve));
   await app.close();
@@ -86,6 +89,8 @@ test('batch publishing isolates failures, retries safely and rejects stale publi
   const first = (await req('/publish-batches', { items: [alpha, beta] })).json().results;
   assert.deepEqual(first.map((r: { status: string }) => r.status), ['published', 'failed']);
   assert.equal((await req('/publish-batches', { items: [alpha] })).json().results[0].status, 'skipped');
+  await req('/games/alpha/unpublish', {});
+  assert.equal((await req('/publish-batches', { items: [{ ...alpha, expectedActiveVersion: '2.0.0', expectedPublished: false }] })).json().results[0].status, 'published', 'the current published version can be relisted');
   await req('/games/beta/review', { version: '1.0.0', approved: true });
   store.db.update(games).set({ activeVersion: '0.5.0' }).where(eq(games.id, 'beta')).run();
   const conflict = (await req('/publish-batches', { items: [beta] })).json().results[0];
@@ -140,4 +145,37 @@ test('automatic candidates use latest stable release and never downgrade or sile
   assert.ok(compareVersions('9007199254740993.0.0', '9007199254740992.0.0') > 0);
   game.versions = ['3.0.0-beta', '1.0.0', '3.0.0'].map((version) => ({ version, publishedAt: null })) as AdminGame['versions'];
   assert.equal(pendingVersion(game)?.version, '3.0.0');
+});
+
+test('older unpublished versions do not make a current game pending or become selectable updates', () => {
+  const release: Release = { id: 3, tag: 'v0.1.3', name: 'v0.1.3', publishedAt: '2026-10-10', prerelease: false, asset: { id: 3, name: 'game.zip', size: 10 } };
+  const source = { id: 1, fullName: 'owner/wecraft', archived: false, checkError: null, checkedAt: '2026-10-10', importedReleaseIds: [3], status: 'current', releases: [release] } as Source;
+  const game = { id: 'wecraft', repositoryId: 1, activeVersion: '0.1.3', published: true,
+    versions: ['0.1.3', '0.1.0'].map((version, id) => ({ id, version, publishedAt: version === '0.1.3' ? '2026-10-10' : null, manifest: { ...testManifest, name: 'WeCraft' } })) } as AdminGame;
+  for (const choices of [{}, { wecraft: '0.1.0' }]) {
+    const [row] = updateRows([source], [game], choices);
+    assert.equal(row.state, 'current'); assert.equal(isPendingUpdate(row), false);
+    assert.equal(row.draft, undefined); assert.deepEqual(row.drafts, []);
+  }
+  game.versions.unshift({ ...game.versions[1], id: 4, version: '0.2.0-beta' });
+  const [manual] = updateRows([source], [game]);
+  assert.equal(manual.state, 'manual'); assert.deepEqual(manual.drafts.map((v) => v.version), ['0.2.0-beta']);
+  assert.equal(updateRows([source], [game], { wecraft: '0.2.0-beta' })[0].draft?.version, '0.2.0-beta');
+  game.versions.unshift({ ...game.versions[1], id: 5, version: '0.2.0', publishedAt: null });
+  assert.equal(updateRows([source], [game])[0].draft?.version, '0.2.0');
+});
+
+test('publication rejects old unpublished drafts and batch downgrades while preserving explicit historical rollback', async (t) => {
+  const { req, install, store } = await fixture(t);
+  await install('alpha', '0.5.0');
+  await req('/games/alpha/review', { version: '0.5.0', approved: true });
+  assert.equal((await req('/games/alpha/publish', { version: '0.5.0' })).statusCode, 409);
+  const oldDraft = { gameId: 'alpha', version: '0.5.0', expectedActiveVersion: '1.0.0', expectedPublished: true };
+  assert.match((await req('/publish-batches', { items: [oldDraft] })).json().results[0].error, /高於/);
+  await req('/games/alpha/review', { version: '2.0.0', approved: true });
+  assert.equal((await req('/games/alpha/publish', { version: '2.0.0' })).statusCode, 200);
+  const oldPublished = { ...oldDraft, version: '1.0.0', expectedActiveVersion: '2.0.0' };
+  assert.match((await req('/publish-batches', { items: [oldPublished] })).json().results[0].error, /高於/);
+  assert.equal(store.db.select().from(games).where(eq(games.id, 'alpha')).get()!.activeVersion, '2.0.0');
+  assert.equal((await req('/games/alpha/publish', { version: '1.0.0' })).statusCode, 200);
 });

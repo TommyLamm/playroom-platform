@@ -39,8 +39,8 @@
 | `POST /admin/github-owners/:login/remove` | `{}`，移除常用帳號，不刪除來源 |
 | `GET /admin/github-owners/:login/repositories` | 選填 `page`（預設 1），每次最多 100 個公開 repositories、`added` 及 `hasMore` |
 | `GET /admin/sources` | 遊戲來源、封存狀態、保存的 Release 檢查結果及已匯入版本 |
-| `POST /admin/repositories/:id/check` | `{}`，更新 Release 檢查與時間，失敗保留快取並回傳 `checkError` |
-| `POST /admin/source-checks` | `{}`，啟動或沿用所有未封存來源的檢查，回傳 202 與 `check`；後台進入時觸發一次 |
+| `POST /admin/repositories/:id/check` | `{}`，更新 Release 檢查與時間，失敗保留快取並回傳 `checkError`；限流立即回報暫停，由背景到期重試，不讓 HTTP 請求等到額度恢復 |
+| `POST /admin/source-checks` | `{force?}`，預設 true，啟動或沿用所有未封存來源的檢查，回傳 202 與 `check`；後台進入時傳 false，沿用五分鐘內的成功結果 |
 | `GET /admin/source-checks/current` | `check` 含 id／status／total／completed／failed／startedAt／finishedAt／retryAt，無本次檢查時為 null |
 | `POST /admin/repositories/:id/state` | `{archived}`，封存／恢復；匯入中的來源不可封存 |
 | `POST /admin/import-batches` | `{requestId,items:[{repositoryId,releaseId}]}`，UUID requestId，同批次冪等，最多 100 項，回傳 202 與 `batch` |
@@ -50,8 +50,8 @@
 | `POST /admin/imports` | `{repositoryId,releaseId}`，回傳 202 與 `jobId` |
 | `POST /admin/games/:id/preview` | `{version}`，回傳 `url`、`expiresAt` |
 | `POST /admin/games/:id/review` | `{version,approved}`，保存確認者及時間或撤銷；管理版本回應含 reviewedBy／reviewedAt |
-| `POST /admin/games/:id/publish` | `{version}`，首次發布要求版本已預覽確認；已公開版本可回退 |
-| `POST /admin/publish-batches` | `{items:[{gameId,version,expectedActiveVersion,expectedPublished}]}`，最多 100 款、遊戲不可重複；逐款回傳 published／skipped／failed 與 error，上架狀態變更時拒絕該款 |
+| `POST /admin/games/:id/publish` | `{version}`，首次發布要求版本已預覽確認，且已有目前版本時必須高於該版本；已公開版本可回退 |
+| `POST /admin/publish-batches` | `{items:[{gameId,version,expectedActiveVersion,expectedPublished}]}`，最多 100 款、遊戲不可重複；逐款回傳 published／skipped／failed 與 error，上架狀態變更或更新版本低於目前版本時拒絕該款，已是目前上架版本則略過 |
 | `POST /admin/games/:id/unpublish` | `{}`，封鎖所有公開版本資源 |
 | `GET /admin/accounts` | 僅 admin；選填 search（帳號文字）、page（預設 1），每頁 20 個帳號，回傳 id／username／role／createdAt，不含密碼或 session |
 | `POST /admin/accounts/:id/role` | 僅 admin；`{role,expectedRole}`，立即變更角色；目前角色與 expectedRole 不符或將最後一位 admin 降級時回傳 409 |
@@ -72,7 +72,7 @@
 
 「遊戲與版本」使用搜尋、篩選與分頁表格，每頁預設 20 款（可選 50／100），點選「管理版本」開啟側邊詳情；手機為全螢幕詳情。版本可搜尋且每頁 10 筆，預覽及確認返回後保留所選版本。歷史回退、下架及來源／校驗資訊沿用原有規則。
 
-「遊戲更新」集中顯示目前版本、最新正式 Release、待發布版本及確認狀態，支援搜尋、篩選與跨頁勾選。伺服器預設每小時檢查未封存來源（`GAME_RELEASE_CHECK_INTERVAL_SECONDS=3600`），具遊戲管理權限的使用者進入後台時也檢查一次，仍可立即檢查。手動與背景共用最多三個請求，相同來源及整輪檢查合併，限流依 GitHub 回應的重試時間暫停剩餘請求；錯誤保留成功快取。這只檢查，不自動匯入或發布。最新候選沿用按發布時間排序的有效正式版，若已匯入或版本不高於目前版本，不自動推薦其他舊版；預發布及歷史版本需手動選擇。
+「遊戲更新」集中顯示目前版本、最新正式 Release、待發布版本及確認狀態，支援搜尋、篩選與跨頁勾選。伺服器預設每小時檢查未封存來源（`GAME_RELEASE_CHECK_INTERVAL_SECONDS=3600`），進入後台時沿用五分鐘內的成功結果，其餘來源重新檢查；「立即檢查」強制檢查。手動與背景共用最多三個請求，相同來源及整輪檢查合併。限流依 GitHub 回應暫停，到期後連同被限流的來源自動重試，完成後清除錯誤；暫停中的來源不算完成或最終失敗，成功快取保留。Release 請求帶 ETag，GitHub 回傳 304 時沿用清單。這只檢查，不自動匯入或發布。最新候選沿用按發布時間排序的有效正式版，若已匯入或版本不高於目前版本，不自動推薦其他舊版。待發布選單只列出高於目前版本的未發布版本，較新的預發布版本需手動選擇；未發布舊版不列為待更新，歷史回退使用「遊戲與版本」。
 
 日常流程為「勾選更新 → 確認整批 Release → 批量匯入 → 連續預覽確認 → 批量發布」。每批最多 100 款；確認視窗列出版本變更及首次／重新上架。批量發布獨立處理各款、略過已是目標版本的項目，拒絕目前版本或上架狀態已變更的項目，失敗需刷新重新確認，不影響其他款。管理者的來源／匯入／預覽／確認／發布 API 均不可由遊戲直接呼叫。
 

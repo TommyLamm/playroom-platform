@@ -347,7 +347,7 @@ export async function createApplication(
       const { id } = repoParams.parse(request.params);
       const repo = store.db.select().from(repositories).where(eq(repositories.id, id)).get();
       if (!repo) throw new AppError(404, '找不到 repository');
-      await checks.check(id);
+      await checks.checkForRequest(id);
       const checked = store.db.select().from(repositories).where(eq(repositories.id, id)).get()!;
       if (checked.checkError) throw new AppError(502, checked.checkError);
       return { releases: checked.cachedReleases };

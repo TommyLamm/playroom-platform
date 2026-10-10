@@ -1011,8 +1011,8 @@ function AdminWorkspace() {
     }, 3000);
     return () => clearInterval(timer);
   }, [canManageGames, load]);
-  const checkSources = useCallback(async () => {
-    const result = await api<{ check: SourceCheck }>('/admin/source-checks', {});
+  const checkSources = useCallback(async (force = true) => {
+    const result = await api<{ check: SourceCheck }>('/admin/source-checks', { force });
     setSourceCheck(result.check);
     await load();
   }, [load]);
@@ -1020,7 +1020,7 @@ function AdminWorkspace() {
     if (!canManageGames) { checkedOnEntry.current = false; return; }
     if (checkedOnEntry.current) return;
     checkedOnEntry.current = true;
-    void checkSources().catch((e) => notice((e as Error).message, true));
+    void checkSources(false).catch((e) => notice((e as Error).message, true));
   }, [canManageGames, checkSources, notice]);
   async function mutate(url: string, body: unknown, message: string) {
     await api(url, body);

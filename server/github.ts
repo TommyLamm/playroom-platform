@@ -60,7 +60,11 @@ export interface GitHubSource {
 }
 
 export function githubSource(githubToken: string, fetcher: typeof fetch = fetch): GitHubSource {
-  async function api(endpoint: string) {
+  let retryAt = 0;
+  const releaseCache = new Map<string, { etag: string; value: unknown }>();
+  async function api(endpoint: string, conditional = false) {
+    if (retryAt > Date.now()) throw new GitHubRateLimitError(retryAt);
+    const cached = conditional ? releaseCache.get(endpoint) : undefined;
     let response: Response;
     try {
       response = await fetcher(`https://api.github.com${endpoint}`, {
@@ -69,6 +73,7 @@ export function githubSource(githubToken: string, fetcher: typeof fetch = fetch)
           'X-GitHub-Api-Version': '2022-11-28',
           'User-Agent': 'MiniGamePlatform',
           ...(githubToken ? { Authorization: `Bearer ${githubToken}` } : {}),
+          ...(cached ? { 'If-None-Match': cached.etag } : {}),
         },
         signal: AbortSignal.timeout(20000),
         redirect: 'error',
@@ -79,16 +84,28 @@ export function githubSource(githubToken: string, fetcher: typeof fetch = fetch)
     if (response.status === 429 || (response.status === 403 &&
         (response.headers.get('x-ratelimit-remaining') === '0' || response.headers.has('retry-after')))) {
       const retry = response.headers.get('retry-after');
-      const retryAt = retry ? (/^\d+$/.test(retry) ? Date.now() + Number(retry) * 1000 : Date.parse(retry))
-        : Number(response.headers.get('x-ratelimit-reset')) * 1000;
-      throw new GitHubRateLimitError(Math.max(Date.now() + 1000, Number.isFinite(retryAt) && retryAt > 0 ? retryAt : Date.now() + 60000));
+      const retryAfter = retry ? (/^\d+$/.test(retry) ? Date.now() + Number(retry) * 1000 : Date.parse(retry)) : 0;
+      const reset = response.headers.get('x-ratelimit-remaining') === '0' ? Number(response.headers.get('x-ratelimit-reset')) * 1000 : 0;
+      const waits = [retryAfter, reset].filter((time) => Number.isFinite(time) && time > Date.now());
+      retryAt = Math.max(Date.now() + 1000, ...(waits.length ? waits : [Date.now() + 60000]));
+      throw new GitHubRateLimitError(retryAt);
     }
+    if (response.status === 304 && cached) return cached.value;
     if (response.status === 403)
       throw new AppError(502, 'GitHub API 存取受限，請檢查 GITHUB_TOKEN 權限');
     if (response.status === 404)
       throw new AppError(404, '找不到公開的 GitHub repository 或 Release');
     if (!response.ok) throw new AppError(502, `GitHub 回應錯誤（${response.status}）`);
-    return response.json();
+    const value: unknown = await response.json();
+    if (conditional) {
+      const etag = response.headers.get('etag');
+      if (etag) {
+        // Bound memory for platforms managing many repositories.
+        if (releaseCache.size >= 1000) releaseCache.delete(releaseCache.keys().next().value!);
+        releaseCache.set(endpoint, { etag, value });
+      } else releaseCache.delete(endpoint);
+    }
+    return value;
   }
   function publicRelease(raw: z.infer<typeof releaseSchema>): Release {
     const matches = raw.assets.filter((a) => a.name === 'game.zip');
@@ -130,7 +147,7 @@ export function githubSource(githubToken: string, fetcher: typeof fetch = fetch)
     async releases(fullName) {
       const data = z
         .array(releaseSchema)
-        .parse(await api(`/repos/${repositoryName.parse(fullName)}/releases?per_page=100`));
+        .parse(await api(`/repos/${repositoryName.parse(fullName)}/releases?per_page=100`, true));
       return data.filter((r) => !r.draft).map(publicRelease);
     },
     async resolve(fullName, releaseId) {

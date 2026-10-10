@@ -56,10 +56,75 @@ test('rate limit preserves cache, pauses remaining requests until retryAt and re
   const failed = store.db.select().from(repositories).where(eq(repositories.id, repos[0].id)).get()!;
   assert.deepEqual(failed.cachedReleases, previous); assert.match(failed.checkError!, /額度/);
   t.mock.timers.tick(4999); await flush(); assert.equal(calls, 3);
-  t.mock.timers.tick(1); await flush(); assert.equal(calls, 5); assert.equal(checks.current()?.status, 'completed');
-  assert.equal(checks.current()?.failed, 1);
-  limited = false; await checks.check(repos[0].id);
+  limited = false;
+  t.mock.timers.tick(1); await flush(); assert.equal(calls, 6); assert.equal(checks.current()?.status, 'completed');
+  assert.equal(checks.current()?.completed, 5); assert.equal(checks.current()?.failed, 0);
   assert.equal(store.db.select().from(repositories).where(eq(repositories.id, repos[0].id)).get()!.checkError, null);
+});
+
+test('a quota-paused source retries even with no remaining sources, and repeated limits delay the same task', async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout', 'Date'], now: new Date('2026-10-10T00:00:00Z') });
+  let calls = 0;
+  const { checks, repos, store } = await fixture(t, 1, async () => {
+    if (++calls < 3) throw new GitHubRateLimitError(Date.now() + 5000);
+    return [];
+  });
+  checks.checkAll();
+  const task = checks.check(repos[0].id);
+  await flush();
+  assert.equal(checks.current()?.completed, 0);
+  t.mock.timers.tick(5000); await flush();
+  assert.equal(calls, 2); assert.equal(checks.current()?.status, 'running');
+  assert.equal(checks.check(repos[0].id), task);
+  t.mock.timers.tick(4999); await flush(); assert.equal(calls, 2);
+  t.mock.timers.tick(1); await flush();
+  assert.equal(await task, true);
+  assert.equal(calls, 3); assert.equal(checks.current()?.status, 'completed');
+  assert.equal(store.db.select().from(repositories).get()!.checkError, null);
+});
+
+test('automatic entry checks reuse recent successes but retry failures, stale and unchecked sources', async (t) => {
+  t.mock.timers.enable({ apis: ['Date'], now: new Date('2026-10-10T00:00:00Z') });
+  const calls: string[] = [];
+  const { checks, store, repos } = await fixture(t, 4, async (name) => { calls.push(name); return []; });
+  store.db.update(repositories).set({ checkedAt: new Date().toISOString() }).where(eq(repositories.id, repos[0].id)).run();
+  store.db.update(repositories).set({ checkedAt: new Date().toISOString(), checkError: 'connection failed' }).where(eq(repositories.id, repos[1].id)).run();
+  store.db.update(repositories).set({ checkedAt: new Date(Date.now() - 300000).toISOString() }).where(eq(repositories.id, repos[2].id)).run();
+  assert.equal(checks.checkAll(false).total, 3); await flush();
+  assert.deepEqual(calls.sort(), repos.slice(1).map((repo) => repo.fullName));
+  assert.equal(checks.checkAll(false).total, 0); await flush(); assert.equal(calls.length, 3);
+  assert.equal(checks.checkAll().total, 4); await flush(); assert.equal(calls.length, 7);
+});
+
+test('shutdown cancels a source that is itself waiting to retry after a rate limit', async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout', 'Date'], now: new Date('2026-10-10T00:00:00Z') });
+  let calls = 0;
+  const { checks } = await fixture(t, 1, async () => { calls++; throw new GitHubRateLimitError(Date.now() + 5000); });
+  checks.checkAll(); await flush();
+  await checks.close();
+  t.mock.timers.tick(5000); await flush();
+  assert.equal(calls, 1); assert.equal(checks.current()?.status, 'cancelled');
+});
+
+test('HTTP checks return promptly on quota pauses while the shared background task retries', async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout', 'Date'], now: new Date('2026-10-10T00:00:00Z') });
+  let limited = true, calls = 0;
+  const { checks, repos, store } = await fixture(t, 2, async () => {
+    calls++;
+    if (limited) throw new GitHubRateLimitError(Date.now() + 5000);
+    return [];
+  });
+  const request = checks.checkForRequest(repos[0].id);
+  assert.equal(checks.checkForRequest(repos[0].id), request);
+  assert.equal(await request, false);
+  assert.equal(await checks.checkForRequest(repos[1].id), false);
+  assert.match(store.db.select().from(repositories).where(eq(repositories.id, repos[1].id)).get()!.checkError!, /額度/);
+  assert.equal(calls, 1);
+  const completion = checks.check(repos[0].id);
+  await flush(); limited = false;
+  t.mock.timers.tick(5000); await flush();
+  assert.equal(await completion, true); assert.equal(calls, 3);
+  assert.ok(store.db.select().from(repositories).all().every((repo) => repo.checkedAt && !repo.checkError));
 });
 test('hourly scheduling checks without an open page and close cancels the timer', async (t) => {
   t.mock.timers.enable({ apis: ['setInterval', 'Date'], now: new Date('2026-10-10T00:00:00Z') });

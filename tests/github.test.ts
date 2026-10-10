@@ -44,6 +44,40 @@ test('GitHub rate limit errors carry retry-after/reset times and do not confuse 
   await assert.rejects(forbidden.releases('example/game'), (error: unknown) => error instanceof Error && !(error instanceof GitHubRateLimitError));
 });
 
+test('release checks reuse ETags, preserve cached releases on 304 and refresh changed releases', async () => {
+  let calls = 0;
+  const raw = (id: number) => [{ id, tag_name: `v${id}.0.0`, name: null, published_at: '2026-10-10', prerelease: false, draft: false, assets: [] }];
+  const adapter = githubSource('server-only', (async (_input, init) => {
+    const headers = new Headers(init?.headers);
+    calls++;
+    if (calls === 1) { assert.equal(headers.get('if-none-match'), null); return Response.json(raw(1), { headers: { etag: '"one"' } }); }
+    if (calls === 2) { assert.equal(headers.get('if-none-match'), '"one"'); return new Response(null, { status: 304 }); }
+    if (calls === 3) { assert.equal(headers.get('if-none-match'), '"one"'); return Response.json(raw(2), { headers: { etag: '"two"' } }); }
+    assert.equal(headers.get('if-none-match'), '"two"'); return new Response(null, { status: 304 });
+  }) as typeof fetch);
+  assert.equal((await adapter.releases('example/game'))[0].id, 1);
+  assert.equal((await adapter.releases('example/game'))[0].id, 1);
+  assert.equal((await adapter.releases('example/game'))[0].id, 2);
+  assert.equal((await adapter.releases('example/game'))[0].id, 2);
+});
+
+test('GitHub cooldown covers all API calls and honors both retry-after and primary reset', async (t) => {
+  t.mock.timers.enable({ apis: ['Date'], now: new Date('2026-10-10T00:00:00Z') });
+  let calls = 0;
+  const resetAt = Date.now() + 120000;
+  const adapter = githubSource('', (async () => {
+    if (++calls === 1) return new Response('{}', { status: 403, headers: { 'retry-after': '10', 'x-ratelimit-remaining': '0', 'x-ratelimit-reset': String(resetAt / 1000) } });
+    return Response.json([]);
+  }) as typeof fetch);
+  await assert.rejects(adapter.releases('example/one'), (error: unknown) => error instanceof GitHubRateLimitError && error.retryAt === resetAt);
+  await assert.rejects(adapter.checkRepository('example/two'), GitHubRateLimitError);
+  t.mock.timers.tick(119999);
+  await assert.rejects(adapter.releases('example/three'), GitHubRateLimitError);
+  assert.equal(calls, 1);
+  t.mock.timers.tick(1);
+  assert.deepEqual(await adapter.releases('example/three'), []); assert.equal(calls, 2);
+});
+
 test('GitHub download checks redirects, limits, truncation and abort', async (t) => {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), 'playroom-download-'));
   t.after(() => fs.rm(root, { recursive: true, force: true }));

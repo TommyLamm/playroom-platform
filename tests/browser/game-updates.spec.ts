@@ -1,5 +1,8 @@
 import { selectAdminPage } from './helpers/admin';
 import { test, expect, type Page } from '@playwright/test';
+import type { AdminGame, StoredVersion } from '../../shared/types';
+import type { Source } from '../../shared/sources';
+import { testManifest } from '../helpers';
 
 async function login(page: Page) {
   // Keep this suite's logins out of other suites' per-IP rate-limit budget.
@@ -100,4 +103,38 @@ test('update selection survives pagination and filtering without resetting other
   await page.getByRole('textbox', { name: '搜尋遊戲更新', exact: true }).fill('game-00');
   await expect(page.getByRole('checkbox', { name: '更新 pagination/game-00', exact: true })).toBeChecked();
   await expect(page.getByRole('button', { name: '匯入所選更新（2）', exact: true })).toBeEnabled();
+});
+
+test('current games with old unpublished drafts are hidden from pending updates and cannot select downgrades', async ({ page }) => {
+  const version = (id: number, value: string, publishedAt: string | null): StoredVersion => ({
+    id, gameId: 'wecraft', version: value, manifest: { ...testManifest, id: 'wecraft', version: value, name: 'WeCraft' },
+    sha256: 'fixture', releaseId: id, assetId: id, releaseTag: `v${value}`, importedAt: '2026-10-10', publishedAt,
+    reviewedBy: null, reviewedAt: null,
+  });
+  const game: AdminGame = { id: 'wecraft', repositoryId: 10000, activeVersion: '0.1.3', published: true,
+    versions: [version(3, '0.1.3', '2026-10-10'), version(1, '0.1.0', null)] };
+  const source: Source = { id: 10000, fullName: 'owner/wecraft', createdAt: '2026-10-10', archived: false,
+    checkedAt: '2026-10-10', checkError: null, importedReleaseIds: [1, 3], gameId: 'wecraft', gameName: 'WeCraft', importedVersion: '0.1.3', status: 'current',
+    releases: [{ id: 3, tag: 'v0.1.3', name: 'v0.1.3', publishedAt: '2026-10-10', prerelease: false, asset: { id: 3, name: 'game.zip', size: 10 } }] };
+  await page.route('**/api/v1/admin/sources', (route) => route.fulfill({ json: { sources: [source] } }));
+  await page.route('**/api/v1/admin/overview', async (route) => {
+    const response = await route.fetch();
+    const overview = await response.json();
+    await route.fulfill({ json: { ...overview, games: [game] } });
+  });
+  await login(page);
+  await selectAdminPage(page, /^遊戲更新/);
+  await expect(page.locator('.game-update-table tbody tr')).toHaveCount(0);
+  await page.getByLabel('更新狀態', { exact: true }).selectOption('all');
+  const row = page.locator('.game-update-table tbody tr').filter({ hasText: 'WeCraft' });
+  await expect(row.getByText('暫無待更新', { exact: true })).toBeVisible();
+  await expect(row.getByRole('combobox')).toHaveCount(0);
+  await expect(row.getByRole('button', { name: '預覽', exact: true })).toHaveCount(0);
+  game.versions.unshift(version(5, '0.2.0-beta', null), version(4, '0.1.4', null));
+  const choices = row.getByRole('combobox');
+  await expect(choices).toHaveValue('0.1.4');
+  await expect(choices.locator('option')).toHaveText(['手動選擇版本', 'v0.2.0-beta · 預發布', 'v0.1.4']);
+  await choices.selectOption('0.2.0-beta');
+  await expect(choices).toHaveValue('0.2.0-beta');
+  await page.screenshot({ path: `output/playwright/update-candidates-${test.info().project.name}.png`, fullPage: true });
 });
