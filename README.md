@@ -49,6 +49,65 @@ npm start
 
 僅供本機試用的快速初始化可執行 `npx tsx scripts/preview-setup.ts`：它建立隨機管理員密碼，寫到被 Git 忽略且不會由網站提供的 `data/local-admin.txt`，並加入範例遊戲。正式部署請使用上面的互動式初始化。
 
+### 開發與部署 shortcuts（Makefile）
+
+日常開發使用本機 Node.js 24+，不需要 Docker。已安裝 GNU Make 時，可在 repository 根目錄使用以下 shortcuts；Windows 需另行安裝 GNU Make 並加入 PATH，亦可直接使用對應的 npm 指令。
+
+| 指令 | 使用時機／對應操作 |
+| --- | --- |
+| `make` / `make help` | 查看主要 shortcuts |
+| `make first-start` | 首次本機開啟：依序完成 `make setup` 再啟動 `make start`；初始化失敗時不啟動，執行前須先停止平台 |
+| `make setup` | 首次本機試用：`npm ci` 後透過 Node／tsx 載入 `.env` 並執行 `scripts/preview-setup.ts`；須先停止平台，預設管理員密碼寫到 `data/local-admin.txt`（自訂 DATA_DIR 時寫到該目錄），並加入範例遊戲 |
+| `make start` / `make dev` | 日常本機開發：`npm run dev`，開啟 `http://localhost:5173`；兩者相同 |
+| `make check` | 提交前依序執行 `sdk:check`、`typecheck`、`check:boundaries`、`build` 及 `npm test`；任一步失敗即停止 |
+| `make e2e` | 驗證瀏覽器流程：`npm run test:e2e`，預設使用已安裝的 Chrome |
+| `make build` / `make start-built` | 建置／啟動建置版本；先 build 再 start-built，預設網址為 `http://localhost:3000` |
+| `make admin-init ADMIN_USER=admin` | 建置後互動式建立本機管理員；須停止平台，既有管理員不覆寫 |
+| `make seed` | 建置後初始化／更新本機範例遊戲；須停止平台 |
+| `make backup-local BACKUP=backups/pre-update-name` | 備份本機資料到新目錄；需已有 build，可在服務運行中執行 |
+
+也可分別執行 `make install`、`make typecheck`、`make test`、`make sdk-check` 或 `make boundaries`。`make check` 不包含 E2E、依賴漏洞掃描或 Docker smoke test；瀏覽器相關修改另跑 `make e2e`，依賴檢查使用 `npm audit`，容器相關修改依 CI 執行 Docker 驗證。`make setup` 僅供本機試用；正式部署使用上面的互動式管理員初始化。
+
+首次本機開啟執行 `make first-start`，完成安裝及初始化後自動啟動開發服務，開啟 `http://localhost:5173`；管理員密碼見 `data/local-admin.txt`（自訂 DATA_DIR 時寫到該目錄）。需要 Node.js 24+ 及 GNU Make；若有 `.env`，初始化會一併載入，須使用上面的本機 HTTP origins，不能沿用正式部署 HTTPS 設定。只想安裝及初始化而不啟動時用 `make setup`。
+
+其後平時只用 `make start`，提交前用 `make check`。已有依賴與資料時不需再跑 first-start／setup，也不需另外跑 dev；setup 會安裝依賴及建立／更新範例資料，start 只啟動開發服務。`make start` 現在指本機開發，原本啟動建置版本的用途改為 `make start-built`。
+
+Docker shortcuts 在部署主機的 repository 根目錄執行，需要 Docker Engine、Compose v2 及已設定的 `.env`。首次普通部署前依下面的部署／備份章節設定兩個 HTTPS origins、反向代理及可寫的備份目錄。Makefile 不自動建立／覆寫 `.env`，也不自動拉取或切換 Git 程式碼。
+
+| 指令 | 使用時機／對應操作 |
+| --- | --- |
+| `make first-deploy ADMIN_USER=admin` | 首次普通 Compose 部署：build → 互動式初始化管理員 → 啟動並等待健康檢查；預設管理員名為 admin，已有管理員時拒絕再次初始化 |
+| `make start-server` | 啟動已有的 Docker 服務，不重新建置 |
+| `make stop-server` | 停止 Docker 全部服務，保留資料 volume；本機開發用 Ctrl+C 停止 |
+| `make status` / `make logs` | 查看容器狀態／最近 100 行日誌 |
+| `make backup BACKUP=pre-update-name` | 備份正在運行的 app 到容器 `/backups/pre-update-name`，預設對應主機 `./backups/pre-update-name`；每次使用新備份名 |
+| `make deploy BACKUP=pre-update-name` | 普通 Compose 更新：先備份，成功後以目前 checkout 建置並切換 app；備份失敗時不部署 |
+| `make server-admin-init ADMIN_USER=admin` | 單獨初始化 Docker 管理員，須已有 image 並先停止 app |
+| `make server-seed` | 單獨初始化／更新 Docker 範例遊戲，須已有 image 並先停止 app；首次部署可先 build、初始化／seed，再 start-server |
+| `make first-deploy-ota` | 全新 Linux OTA 部署，沿用 `scripts/deploy-ota.sh`；先在環境變數設定兩個 HTTPS origins，不要先建立 `.env`，script 拒絕覆寫既有設定 |
+| `make ota-check` | 檢查 OTA 設定分支的最新版本，輸出 `latest.commit` 完整 SHA |
+| `make ota-update COMMIT=<完整 SHA>` | 將已檢查的版本提交給既有 updater，沿用建置、測試、備份、切換及失敗回復流程 |
+| `make ota-status` | 查看目前／最新版本與更新工作的階段、完成或失敗狀態 |
+
+偵測到 `ota-state/active.json` 時，Docker 啟停、備份、狀態及日誌指令自動帶齊三個 OTA Compose 檔案；`make deploy COMMIT=<完整 SHA>` 亦會改走 OTA 更新。OTA 更新是非同步工作，指令回傳 jobId 只表示已接受，請用 `make ota-status` 確認完成。OTA shortcuts 在 updater 容器內使用既有 token 呼叫內部 API，不需要把 token 複製到主機命令或開放 3090。詳見 [OTA 更新流程](docs/platform-updates.md)。
+
+普通更新範例（已將 checkout 更新到需要部署的程式碼）：
+
+```sh
+make deploy BACKUP=pre-update-20261012-01
+make status
+```
+
+OTA 更新範例：
+
+```sh
+make ota-check
+make ota-update COMMIT=<上一步的完整 latest.commit>
+make ota-status
+```
+
+重建映像與替換容器時沿用資料 volume，但更新切換會短暫中斷，並非零停機。停止服務使用 `make stop-server`，不要用 `docker compose down -v` 刪除資料。還原仍按下方「備份與還原」流程，先停止 app 並還原到新 volume；不提供覆寫現有 DB 的 shortcut。Makefile 沿用現有 npm scripts，遊戲打包／驗證及 Release workflow 仍依[遊戲開發指南](docs/game-development.md)操作。
+
 ## 管理工作台
 
 後台採用淺色品牌綠工作台，桌面左側導覽、手機抽屜導覽按角色顯示功能。平台管理員及遊戲管理者預設開啟「遊戲更新」，分析員開啟「營運概況」。來源加入、開發者探索、封存／恢復及更新發布在同一列表處理。

@@ -35,6 +35,16 @@ docker compose -f compose.yaml -f compose.ota.yaml -f ota-state/active.json up -
 
 ## 管理後台
 
+### 主機上的 Make shortcuts
+
+也可由有部署主機／Docker 操作權限的維護者使用 Makefile：首次部署以 `make first-deploy-ota` 呼叫上述 script，兩個 HTTPS origins 須先設為環境變數。既有 OTA 部署可用 `make start-server`、`make stop-server`、`make backup BACKUP=<新備份名>`、`make status` 及 `make logs`；指令偵測 `ota-state/active.json` 後自動帶齊三個 Compose 檔案，不改寫 active.json。
+
+更新先執行 `make ota-check`，核對最新 commit，再執行 `make ota-update COMMIT=<完整 latest.commit SHA>`（亦可用 `make deploy COMMIT=<完整 SHA>`）。CLI 在運行中的 updater 容器內呼叫既有內部 API，token 只從容器環境讀取，不輸出或傳回瀏覽器，也不需要開放 3090；不接受任意 repository 或分支。updater 仍驗證 SHA 是已檢查的最新版本。
+
+提交成功只表示非同步更新已排入；用 `make ota-status` 查看 job 的階段、`completed`／`failed` 及錯誤，或用 `make logs` 查日誌。沿用下列建置、備份與回復流程，不是零停機，也不更新 updater、Compose 或反向代理。
+
+### 網頁操作
+
 登入 admin，在「管理後台 → 平台更新」查看目前與最新 Git commit。每五分鐘背景檢查一次，也能手動「檢查更新」。有新提交時按「更新平台」，確認後部署已檢查的完整 commit SHA。每次 Git push 不會自動中斷玩家，必須由管理員確認部署。
 
 1. 取得公開 repository 指定分支，鎖定 commit，不接受瀏覽器指定 URL、分支或任意指令。
