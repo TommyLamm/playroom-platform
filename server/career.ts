@@ -3,7 +3,8 @@ import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import type { Store } from './db.js';
 import { AppError } from './errors.js';
-import { gameId, gameVersion, manifestSchema, type Leaderboard } from '../shared/manifest.js';
+import { gameId, gameVersion, type Leaderboard } from '../shared/manifest.js';
+import { requirePublicGame, versionManifest, gameBoards } from './game-catalog.js';
 import { usernameSchema } from '../shared/account.js';
 import type { Career, CareerGame, LeaderboardView, PersonalProgress, RankedScore, ResultsPage, RunResult } from '../shared/career.js';
 
@@ -26,23 +27,13 @@ export function registerCareer(platform: FastifyInstance, store: Store, requireU
     } },
   });
   function publicGame(id: string) {
-    const game = sql.prepare('SELECT active_version FROM games WHERE id=? AND published=1').get(id) as { active_version: string } | undefined;
-    if (!game) throw new AppError(404, '這款遊戲尚未上架或已下架');
-    return game;
+    return { active_version: requirePublicGame(store, id).activeVersion! };
   }
   function manifest(id: string, version: string, published = false) {
-    const row = sql.prepare('SELECT manifest, published_at FROM versions WHERE game_id=? AND version=?').get(id, version) as { manifest: string; published_at: string | null } | undefined;
-    if (!row || (published && !row.published_at)) throw new AppError(404, '找不到已發布的遊戲版本');
-    return manifestSchema.parse(JSON.parse(row.manifest));
+    return versionManifest(store, id, version, published);
   }
   function boards(id: string, published = true): Leaderboard[] {
-    const rows = sql.prepare(`SELECT manifest FROM versions WHERE game_id=? ${published ? 'AND published_at IS NOT NULL' : ''} ORDER BY id DESC`).all(id) as { manifest: string }[];
-    const found = new Map<string, Leaderboard>();
-    for (const row of rows) {
-      const board = manifestSchema.parse(JSON.parse(row.manifest)).leaderboard;
-      if (board && !found.has(board.id)) found.set(board.id, board);
-    }
-    return [...found.values()];
+    return gameBoards(store, id, published);
   }
   function boardFor(id: string, boardId: string): Leaderboard {
     const board = boards(id).find((b) => b.id === boardId);

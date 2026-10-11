@@ -3,6 +3,7 @@ import type { AdminGame } from '../../shared/types';
 import type { Source } from '../../shared/sources';
 import { testManifest } from '../helpers';
 import { selectAdminPage } from './helpers/admin';
+import { mockAdminData } from './helpers/admin-fixtures';
 
 async function login(page: Page, username = 'admin') {
   await page.route(/\/api\/v1\/login$/, (route) => route.continue({ headers: { ...route.request().headers(), 'x-forwarded-for': '192.0.2.155' } }));
@@ -26,8 +27,7 @@ const fixtureGames = (): AdminGame[] => Array.from({ length: 120 }, (_, i) => ({
 test('120-game catalog stays compact, preserves filters and manages paginated versions with keyboard focus', async ({ page }, info) => {
   const games = fixtureGames();
   const repositories = games.map((g) => ({ id: g.repositoryId!, fullName: `catalog/repo-${g.id}`, createdAt: '2026-01-01' }));
-  await page.route('**/api/v1/admin/overview', (route) => route.fulfill({ json: { games, repositories, jobs: [] } }));
-  await page.route('**/api/v1/admin/sources', (route) => route.fulfill({ json: { sources: [] } }));
+  await mockAdminData(page, () => games, () => repositories.map((repo) => ({ ...repo, archived: false, checkedAt: null, checkError: null, releases: [], importedReleaseIds: [], gameId: null, gameName: null, importedVersion: null, status: 'unchecked' })));
   await login(page);
   await expect(page.getByRole('heading', { name: '遊戲更新', level: 1, exact: true })).toBeVisible();
   await selectAdminPage(page, '遊戲與版本');
@@ -36,7 +36,7 @@ test('120-game catalog stays compact, preserves filters and manages paginated ve
   await expect(page.locator('.admin-pagination').first()).toContainText('120 款 · 第 1 / 6 頁');
   await page.getByRole('button', { name: '下一頁', exact: true }).click();
   await expect(table).toContainText('遊戲 020');
-  await page.waitForResponse((r) => r.url().endsWith('/api/v1/admin/overview'));
+  await page.waitForResponse((r) => r.url().endsWith('/api/v1/admin/tasks'));
   await expect(page.locator('.admin-pagination').first()).toContainText('第 2 / 6 頁');
   await selectAdminPage(page, /^遊戲更新/);
   await selectAdminPage(page, '遊戲與版本');
@@ -104,7 +104,7 @@ test('integrated source management discovers, pastes, checks, archives and resto
     const source: Source = { id: nextId++, fullName, createdAt: '2026-01-01', archived: false, checkedAt: null, checkError: null, releases: [], importedReleaseIds: [], gameId: null, gameName: null, importedVersion: null, status: 'unchecked' };
     sources = [...sources, source]; return source;
   };
-  await page.route('**/api/v1/admin/sources', (route) => route.fulfill({ json: { sources } }));
+  await mockAdminData(page, () => [], () => sources);
   await page.route('**/api/v1/admin/repositories', (route) => route.fulfill({ status: 201, json: { repository: add(route.request().postDataJSON().fullName) } }));
   await page.route('**/api/v1/admin/github-owners', (route) => route.fulfill({ json: route.request().method() === 'POST' ? { owner: { login: 'catalog', kind: 'Organization', createdAt: '2026-01-01' } } : { owners: [] } }));
   await page.route('**/api/v1/admin/github-owners/catalog/repositories?*', (route) => route.fulfill({ json: { repositories: [{ fullName: 'catalog/discovered', description: 'Discovered game', archived: false, fork: false, added: false }], hasMore: false } }));

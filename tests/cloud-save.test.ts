@@ -9,6 +9,7 @@ import { createApplication } from '../server/app.js';
 import { getConfig } from '../server/config.js';
 import { backup, restore, seedDemos } from '../server/maintenance.js';
 import { progressData } from '../shared/cloud-save.js';
+import { CURRENT_SCHEMA_VERSION } from '../server/database/version.js';
 
 test('cloud saves isolate accounts, survive sessions and recovery, and reject stale writes', async (t) => {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), 'playroom-cloud-save-'));
@@ -71,17 +72,17 @@ test('cloud saves isolate accounts, survive sessions and recovery, and reject st
     await restore(path.join(root, 'backup'), path.join(root, 'restored'));
     const restored = openStore(path.join(root, 'restored'));
     try {
-      assert.equal(restored.sqlite.pragma('user_version', { simple: true }), 10);
+      assert.equal(restored.sqlite.pragma('user_version', { simple: true }), CURRENT_SCHEMA_VERSION);
       assert.equal(restored.sqlite.pragma('integrity_check', { simple: true }), 'ok');
       assert.equal((restored.sqlite.prepare('SELECT COUNT(*) n FROM sessions').get() as { n: number }).n, 0);
       const saved = restored.sqlite.prepare('SELECT data,revision FROM cloud_saves WHERE game_id=?').get('signal-tap') as { data: string; revision: number };
       assert.deepEqual(JSON.parse(saved.data), expected.data);
       assert.equal(saved.revision, expected.revision);
-      restored.sqlite.exec('DROP TABLE cloud_saves; PRAGMA user_version=9');
+      restored.sqlite.exec('DROP TABLE installations; DROP TABLE cloud_save_snapshots; DROP TABLE cloud_saves; PRAGMA user_version=9');
     } finally { restored.sqlite.close(); }
     const upgraded = openStore(path.join(root, 'restored'));
     try {
-      assert.equal(upgraded.sqlite.pragma('user_version', { simple: true }), 10);
+      assert.equal(upgraded.sqlite.pragma('user_version', { simple: true }), CURRENT_SCHEMA_VERSION);
       assert.equal((upgraded.sqlite.prepare('SELECT COUNT(*) n FROM users').get() as { n: number }).n, 2);
       assert.deepEqual(upgraded.sqlite.pragma('foreign_key_check'), []);
       assert.equal((upgraded.sqlite.prepare('SELECT COUNT(*) n FROM cloud_saves').get() as { n: number }).n, 0);

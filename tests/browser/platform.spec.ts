@@ -4,6 +4,8 @@ import { test, expect } from '@playwright/test';
 test('players register, sign in and stay outside the admin workspace', async ({
   page,
 }, testInfo) => {
+  await page.route(/\/api\/v1\/(register|login)$/, (route) => route.continue({ headers: { ...route.request().headers(),
+    'x-forwarded-for': testInfo.project.name === 'desktop' ? '192.0.2.159' : '192.0.2.160' } }));
   const username = `Player_${testInfo.project.name}_AbCdEfGhIjKl`;
   const password = 'browser-player-password';
   await page.goto('/');
@@ -59,7 +61,7 @@ test('players register, sign in and stay outside the admin workspace', async ({
   await page.getByRole('button', { name: '登入', exact: true }).click();
   await expect(page.locator('.account-name')).toHaveText(username);
   const uppercaseLogin = await page.request.post('/api/v1/login', {
-    headers: { Origin: 'http://localhost:3070' }, data: { username: username.toUpperCase(), password },
+    headers: { Origin: 'http://localhost:3070', 'X-Forwarded-For': testInfo.project.name === 'desktop' ? '192.0.2.159' : '192.0.2.160' }, data: { username: username.toUpperCase(), password },
   });
   expect(uppercaseLogin.status()).toBe(200);
   expect((await uppercaseLogin.json()).username).toBe(username);
@@ -133,6 +135,7 @@ test('admin imports releases, previews, publishes, rolls back and unpublishes', 
     testInfo.project.name !== 'desktop',
     'Single mutation workflow; mobile admin layout is checked separately',
   );
+  await page.route('**/api/v1/login', (route) => route.continue({ headers: { ...route.request().headers(), 'x-forwarded-for': '192.0.2.163' } }));
   await page.goto('/admin');
   await page.getByLabel('帳號', { exact: true }).fill('admin');
   await page.getByLabel('密碼', { exact: true }).fill('e2e-only-password');
@@ -143,6 +146,7 @@ test('admin imports releases, previews, publishes, rolls back and unpublishes', 
   ).toBeVisible();
   const cookies = await context.cookies('http://127.0.0.1:3071');
   expect(cookies.find((c) => c.name.includes('playroom'))).toBeUndefined();
+  const initialCareer = (await (await page.request.get('/api/v1/players/admin/career')).json()).totals;
   await page.getByRole('button', { name: '匯入遊戲', exact: true }).first().click();
   await page.getByRole('textbox', { name: 'Repository', exact: true }).fill('example/game');
   await page.getByRole('dialog', { name: '從 GitHub 匯入', exact: true }).getByRole('button', { name: '加入來源', exact: true }).click();
@@ -157,7 +161,7 @@ test('admin imports releases, previews, publishes, rolls back and unpublishes', 
   await row.getByRole('button', { name: '預覽', exact: true }).click();
   await expect(page.frameLocator('iframe').locator('#start')).toBeVisible();
   await page.getByRole('dialog', { name: '遊戲預覽', exact: true }).getByRole('button', { name: '確認通過', exact: true }).click();
-  expect((await (await page.request.get('/api/v1/players/admin/career')).json()).totals.opens).toBe(0);
+  expect((await (await page.request.get('/api/v1/players/admin/career')).json()).totals.opens).toBe(initialCareer.opens);
   await row.getByRole('button', { name: '發布', exact: true }).click();
   await page.getByRole('button', { name: '確認', exact: true }).click();
   await expect(row.getByText('已上架', { exact: true })).toBeVisible();
@@ -168,8 +172,8 @@ test('admin imports releases, previews, publishes, rolls back and unpublishes', 
   await unsupported.frameLocator('iframe').locator('.tile.lit').click();
   await expect(unsupported.frameLocator('iframe').locator('#score')).toHaveText('01');
   const unsupportedCareer = (await (await unsupported.request.get('/api/v1/players/admin/career')).json());
-  expect(unsupportedCareer.totals.opens).toBe(1);
-  expect(unsupportedCareer.totals.completedRuns).toBe(0);
+  expect(unsupportedCareer.totals.opens).toBe(initialCareer.opens + 1);
+  expect(unsupportedCareer.totals.completedRuns).toBe(initialCareer.completedRuns);
   await unsupported.close();
   await page.getByRole('dialog', { name: '管理版本 · 測試光點', exact: true }).getByRole('button', { name: '關閉', exact: true }).click();
   await page.getByRole('button', { name: '匯入遊戲', exact: true }).click();
@@ -204,6 +208,7 @@ test('admin imports releases, previews, publishes, rolls back and unpublishes', 
 
 test('admin remains usable at narrow widths', async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== 'mobile');
+  await page.route('**/api/v1/login', (route) => route.continue({ headers: { ...route.request().headers(), 'x-forwarded-for': '192.0.2.164' } }));
   await page.goto('/admin');
   await page.getByLabel('帳號', { exact: true }).fill('admin');
   await page.getByLabel('密碼', { exact: true }).fill('e2e-only-password');

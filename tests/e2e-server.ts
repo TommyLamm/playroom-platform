@@ -6,6 +6,7 @@ import { openStore, users } from '../server/db.js';
 import { createApplication } from '../server/app.js';
 import { passwordHash } from '../server/auth.js';
 import { seedDemos } from '../server/maintenance.js';
+import { installVersion, publish } from '../server/library.js';
 import { fakeGitHub, makeZip, testManifest } from './helpers.js';
 import type { Release } from '../shared/types.js';
 
@@ -29,6 +30,21 @@ store.db
   })
   .run();
 await seedDemos(store, config);
+// Isolated real SDK releases for format migration and old-tab browser coverage.
+for (const surface of ['desktop', 'mobile']) {
+  const id = `save-formats-${surface}`;
+  for (const version of ['1.0.0', '2.0.0', '3.0.0']) {
+    const manifest = { ...testManifest, id, name: `存檔格式 ${surface}`, version, schemaVersion: 2 as const,
+      cloudSave: version === '1.0.0' ? { readableFormats: [1], writeFormat: 1 } : { readableFormats: version === '2.0.0' ? [1, 2] : [2], writeFormat: 2 } };
+    const stage = path.join(config.dataDir, 'staging', `${id}-${version}`);
+    await fs.cp('examples/starter', stage, { recursive: true });
+    await fs.writeFile(path.join(stage, 'game.json'), JSON.stringify(manifest));
+    await installVersion(store, config, stage, manifest, { repositoryId: null, releaseId: null, assetId: null, releaseTag: null, sha256: 'fixture' });
+    publish(store, id, version);
+  }
+  publish(store, id, '1.0.0');
+  store.sqlite.prepare('UPDATE games SET published=0 WHERE id=?').run(id);
+}
 for (const [index, role] of (['game_manager', 'analyst'] as const).entries()) {
   store.db.insert(users).values({ id: index + 2, username: `ui-${role}`, role, password: await passwordHash('e2e-only-password') }).run();
 }

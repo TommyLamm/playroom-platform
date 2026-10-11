@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { runInNewContext } from 'node:vm';
+import { isHelloMessage } from '../shared/protocol.js';
 
 const source = readFileSync('examples/starter/playroom-sdk.js', 'utf8')
   .replace('export const Playroom =', 'globalThis.Playroom =');
@@ -18,7 +19,7 @@ type Sdk = {
   finishRun(result: { runId: string; score: number }): Promise<{ saved: true } | null>;
 };
 
-function harness(standalone = false) {
+function harness(standalone = false, sdkSource = source) {
   let receive: (event: { source: unknown; origin: string; data: Message }) => void;
   let nextTimer = 0;
   let nextRequest = 0;
@@ -41,7 +42,7 @@ function harness(standalone = false) {
     clearTimeout(id: number) { timers.delete(id); },
     Playroom: undefined as Sdk | undefined,
   };
-  runInNewContext(source, sandbox);
+  runInNewContext(sdkSource, sandbox);
   return {
     sdk: sandbox.Playroom!, messages, parent,
     requests: () => messages.filter((message) => message.data.type === 'request'),
@@ -88,6 +89,39 @@ test('SDK cloud capability is independent of scoring and retries preserve reques
   h.respond(h.requests()[2].data, { saved: true, revision: 5 });
   assert.equal((await retry)?.revision, 5);
   assert.equal(await h.sdk.startRun(), null);
+});
+
+test('frozen pre-versioned SDK accepts new v1 init and numeric errors', async () => {
+  const legacy = readFileSync('tests/fixtures-sdk-v1.js', 'utf8').replace('export const Playroom =', 'globalThis.Playroom =');
+  const h = harness(false, legacy);
+  assert.equal(isHelloMessage(h.messages[0].data), true);
+  h.send({ protocol: 'playroom', version: 1, type: 'init', connection, mode: 'authenticated', scoring: true, progress: true, capabilities: ['scoring', 'progress', 'machineErrors', 'saveFormats'] });
+  assert.equal((await h.sdk.ready()).available, true);
+  const started = h.sdk.startRun(); await flush();
+  h.respond(h.requests()[0].data, { runId }); assert.equal((await started)?.runId, runId);
+  const finished = h.sdk.finishRun({ runId, score: 7 }); await flush();
+  h.respond(h.requests()[1].data, { saved: true }); assert.equal((await finished)?.saved, true);
+  const failed = h.sdk.saveProgress({ data: {}, revision: 0, formatVersion: 1 });
+  const rejection = assert.rejects(failed, (error: unknown) => (error as { code: number }).code === 409);
+  await flush(); h.respond(h.requests()[2].data, null, { error: '衝突', errorCode: 409, machineCode: 'SAVE_REVISION_CONFLICT' }); await rejection;
+});
+
+test('new SDK capability negotiation honors explicit omission and retains old numeric code', async () => {
+  const h = harness();
+  h.send({ protocol: 'playroom', version: 1, type: 'init', connection, mode: 'authenticated', scoring: true, progress: true, capabilities: ['scoring', 'machineErrors'] });
+  assert.equal((await h.sdk.ready()).progressAvailable, false);
+  assert.equal(await h.sdk.loadProgress(), null);
+  assert.equal(await h.sdk.saveProgress({ data: {}, revision: 0, formatVersion: 1 }), null);
+  const run = h.sdk.startRun();
+  const rejection = assert.rejects(run, (error: unknown) => {
+    const value = error as { code: number; machineCode: string };
+    return value.code === 409 && value.machineCode === 'REQUEST_ID_REUSED';
+  });
+  await flush(); h.respond(h.requests()[0].data, null, { error: 'ID衝突', errorCode: 409, machineCode: 'REQUEST_ID_REUSED' }); await rejection;
+  const preview = harness();
+  preview.send({ protocol: 'playroom', version: 1, type: 'init', connection, mode: 'preview', scoring: true, diagnostics: true, capabilities: [] });
+  assert.equal(await preview.sdk.startRun(), null);
+  assert.equal(preview.requests().length, 0);
 });
 
 test('SDK cloud writes never claim persistence in guest, standalone or preview mode', async () => {

@@ -5,7 +5,7 @@ import path from 'node:path';
 import os from 'node:os';
 import { eq } from 'drizzle-orm';
 import { getConfig } from '../server/config.js';
-import { openStore, users, previews } from '../server/db.js';
+import { openStore, users, previews, games } from '../server/db.js';
 import { passwordHash } from '../server/auth.js';
 import { createApplication } from '../server/app.js';
 import { fakeGitHub } from './helpers.js';
@@ -61,6 +61,10 @@ test('platform lifecycle: authentication, import, preview, publish, update, roll
     origin: config.platformOrigin,
     cookie: String(login.headers['set-cookie']).split(';')[0],
     'x-csrf-token': login.json().csrf,
+  };
+  const state = () => {
+    const game = store.db.select().from(games).where(eq(games.id, 'test-game')).get()!;
+    return { expectedActiveVersion: game.activeVersion, expectedPublished: game.published };
   };
   assert.ok(String(login.headers['set-cookie']).includes('HttpOnly'));
   assert.ok(!String(login.headers['set-cookie']).includes('Domain='));
@@ -142,10 +146,10 @@ test('platform lifecycle: authentication, import, preview, publish, update, roll
     (await app.assets.inject({ url: previewUrl, headers: assetHeaders })).statusCode,
     403,
   );
-  assert.equal((await request('/api/v1/admin/games/test-game/publish', { version: '1.0.0' }, headers)).statusCode, 409);
+  assert.equal((await request('/api/v1/admin/games/test-game/publish', { version: '1.0.0', ...state() }, headers)).statusCode, 409);
   assert.equal((await request('/api/v1/admin/games/test-game/review', { version: '1.0.0', approved: true }, headers)).statusCode, 200);
   assert.equal(
-    (await request('/api/v1/admin/games/test-game/publish', { version: '1.0.0' }, headers))
+    (await request('/api/v1/admin/games/test-game/publish', { version: '1.0.0', ...state() }, headers))
       .statusCode,
     200,
   );
@@ -173,14 +177,14 @@ test('platform lifecycle: authentication, import, preview, publish, update, roll
   github.resolve = originalResolve;
   assert.equal((await importRelease(102)).status, 'completed');
   await request('/api/v1/admin/games/test-game/review', { version: '2.0.0', approved: true }, headers);
-  await request('/api/v1/admin/games/test-game/publish', { version: '2.0.0' }, headers);
+  await request('/api/v1/admin/games/test-game/publish', { version: '2.0.0', ...state() }, headers);
   assert.equal((await request('/api/v1/games')).json().games[0].version, '2.0.0');
-  await request('/api/v1/admin/games/test-game/publish', { version: '1.0.0' }, headers);
+  await request('/api/v1/admin/games/test-game/publish', { version: '1.0.0', ...state() }, headers);
   assert.equal((await request('/api/v1/games')).json().games[0].version, '1.0.0');
-  await request('/api/v1/admin/games/test-game/unpublish', {}, headers);
+  await request('/api/v1/admin/games/test-game/unpublish', state(), headers);
   assert.equal((await app.assets.inject({ url: assetUrl, headers: assetHeaders })).statusCode, 404);
   assert.equal((await request('/api/v1/games')).json().games.length, 0);
-  await request('/api/v1/admin/games/test-game/publish', { version: '2.0.0' }, headers);
+  await request('/api/v1/admin/games/test-game/publish', { version: '2.0.0', ...state() }, headers);
   const backupPath = path.join(root, 'backup');
   await backup(config.dataDir, backupPath);
   const restoredDir = path.join(root, 'restored');

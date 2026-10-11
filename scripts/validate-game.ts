@@ -2,6 +2,7 @@ import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
 import { extractArchive } from '../server/archive.js';
+import { GAME_TOOLS_VERSION } from '../shared/versions.js';
 
 const input = process.argv[2];
 if (!input) throw new Error('Usage: npm run game:validate -- path/to/game.zip');
@@ -12,7 +13,7 @@ try {
     maxExpandedBytes: 256 * 1024 * 1024,
     maxFiles: 10000,
   });
-  console.info(`Valid: ${manifest.id} v${manifest.version}`);
+  console.info(`Valid: ${manifest.id} v${manifest.version} (tools ${GAME_TOOLS_VERSION})`);
 } finally {
   await fs.rm(temporary, { recursive: true, force: true });
 }

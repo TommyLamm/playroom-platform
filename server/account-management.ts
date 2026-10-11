@@ -1,6 +1,8 @@
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { z } from 'zod';
-import { userRoleSchema, type AccountList, type ManagedAccount } from '../shared/account.js';
+import { type AccountList, type ManagedAccount } from '../shared/account.js';
+import { roleChangeRequest, type CommandResponses } from '../shared/commands.js';
+import { commandActor } from './command-context.js';
 import type { Store } from './db.js';
 import { AppError } from './errors.js';
 
@@ -15,15 +17,16 @@ export function registerAccountManagement(app: FastifyInstance, store: Store, re
     const accounts = sql.prepare(`SELECT id,username,role,created_at AS createdAt FROM users WHERE ${where} ORDER BY username COLLATE NOCASE,id LIMIT ? OFFSET ?`).all(search, pageSize, (page - 1) * pageSize) as ManagedAccount[];
     return { accounts, total, page, pageSize };
   });
-  app.post('/api/v1/admin/accounts/:id/role', { preHandler: requireAccounts }, async (request) => {
+  app.post('/api/v1/admin/accounts/:id/role', { preHandler: requireAccounts }, async (request): Promise<CommandResponses['roleChange']> => {
     const { id } = z.object({ id: z.coerce.number().int().positive() }).parse(request.params);
-    const { role, expectedRole } = z.object({ role: userRoleSchema, expectedRole: userRoleSchema }).strict().parse(request.body);
+    const { role, expectedRole } = roleChangeRequest.parse(request.body);
     const account = sql.transaction(() => {
+      commandActor(store, request.userSession!.userId, 'accounts.manage');
       const current = sql.prepare('SELECT id,username,role,created_at AS createdAt FROM users WHERE id=?').get(id) as ManagedAccount | undefined;
       if (!current) throw new AppError(404, '找不到帳號');
-      if (current.role !== expectedRole) throw new AppError(409, '帳號角色已變更，請重新整理後再試');
+      if (current.role !== expectedRole) throw new AppError(409, '帳號角色已變更，請重新整理後再試', 'STATE_CONFLICT', { role: current.role });
       if (current.role === 'admin' && role !== 'admin' && (sql.prepare("SELECT COUNT(*) AS n FROM users WHERE role='admin'").get() as { n: number }).n <= 1)
-        throw new AppError(409, '至少須保留一位平台管理員，請先指派另一位管理員');
+        throw new AppError(409, '至少須保留一位平台管理員，請先指派另一位管理員', 'LAST_ADMIN_REQUIRED');
       sql.prepare('UPDATE users SET role=? WHERE id=?').run(role, id);
       return { ...current, role };
     }).immediate();

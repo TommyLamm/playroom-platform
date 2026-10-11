@@ -149,9 +149,10 @@ test('leaving the player during pending lock cleans up fullscreen and late lock'
 
 test('preview immersive mode keeps Esc inside the game and restores diagnostics and dialog dismissal', async ({ page }, testInfo) => {
   await displayScenario(page, 'missing-keyboard');
-  await page.request.post('/api/v1/login', {
-    headers: { Origin: 'http://localhost:3070' }, data: { username: 'admin', password: 'e2e-only-password' },
+  const login = await page.request.post('/api/v1/login', {
+    headers: { Origin: 'http://localhost:3070', 'X-Forwarded-For': testInfo.project.name === 'desktop' ? '192.0.2.157' : '192.0.2.158' }, data: { username: 'admin', password: 'e2e-only-password' },
   });
+  expect(login.status()).toBe(200);
   await page.goto('/admin');
   await selectAdminPage(page, '遊戲與版本');
   await page.getByRole('button', { name: '管理版本 光點反應', exact: true }).click();

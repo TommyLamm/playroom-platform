@@ -5,10 +5,12 @@ import Database from 'better-sqlite3';
 import lockfile from 'proper-lockfile';
 import { z } from 'zod';
 import { openStore, versions, type Store } from './db.js';
+import { isSupportedBackupSchemaVersion } from './database/version.js';
 import { fileHash, installVersion, publish } from './library.js';
 import { manifestSchema, isSafePath } from '../shared/manifest.js';
 import type { Config } from './config.js';
 import { AppError } from './errors.js';
+import { directoryInventory, safeDataPath } from './version-files.js';
 import { recordBackupStart, recordBackupEnd, normalizeBackupSnapshot } from './operational-state.js';
 
 async function filesIn(root: string, prefix = ''): Promise<string[]> {
@@ -43,6 +45,17 @@ export async function backup(dataDir: string, destination: string) {
     try {
       snapshot.exec('DELETE FROM sessions; DELETE FROM previews;');
       normalizeBackupSnapshot(snapshot);
+      if (snapshot.prepare("SELECT 1 FROM sqlite_master WHERE name='installations' AND type='table'").get()) {
+        // Staging/quarantine are excluded. Retained intents refer only to the
+        // immutable registered files in this SQLite snapshot, never to staging.
+        snapshot.exec(`DELETE FROM installations WHERE state NOT IN ('registered','completed')
+          OR NOT EXISTS (SELECT 1 FROM versions v WHERE v.game_id=installations.game_id AND v.version=installations.version);
+          UPDATE installations SET state='completed',reason=NULL;
+          UPDATE import_jobs SET status='completed',phase='completed',error=NULL,
+            game_id=(SELECT game_id FROM installations i WHERE i.job_id=import_jobs.id),
+            version=(SELECT version FROM installations i WHERE i.job_id=import_jobs.id)
+            WHERE id IN (SELECT job_id FROM installations WHERE job_id IS NOT NULL);`);
+      }
       snapshot
         .prepare(
           "UPDATE import_jobs SET status='failed', phase='interrupted', error='由備份還原，請重新匯入' WHERE status IN ('queued','running')",
@@ -58,12 +71,21 @@ export async function backup(dataDir: string, destination: string) {
         if (manifest.id !== record.game_id || manifest.version !== record.version)
           throw new Error('Version metadata is inconsistent');
         const relative = path.join('games', manifest.id, manifest.version);
-        await fsp.cp(path.join(dataDir, relative), path.join(destination, relative), {
+        const sourceDirectory = await safeDataPath(dataDir, relative.split(path.sep).join('/'));
+        const limits = { maxFiles: 10000, maxExpandedBytes: 256 * 1024 * 1024 };
+        const before = await directoryInventory(sourceDirectory, limits);
+        if (snapshot.prepare("SELECT 1 FROM sqlite_master WHERE name='installations' AND type='table'").get()) {
+          const journals = snapshot.prepare('SELECT files FROM installations WHERE game_id=? AND version=?').all(manifest.id, manifest.version) as { files: string }[];
+          for (const journal of journals) if (JSON.stringify(before) !== JSON.stringify(JSON.parse(journal.files))) throw new Error('Registered version file hashes do not match installation journal');
+        }
+        await fsp.cp(sourceDirectory, path.join(destination, relative), {
           recursive: true,
           errorOnExist: true,
           force: false,
           dereference: false,
         });
+        if (JSON.stringify(before) !== JSON.stringify(await directoryInventory(path.join(destination, relative), limits)))
+          throw new Error('Version files changed during backup');
       }
       snapshot.pragma('wal_checkpoint(TRUNCATE)');
       snapshot.pragma('journal_mode=DELETE');
@@ -115,8 +137,10 @@ export async function restore(source: string, dataDir: string) {
   try {
     if (check.pragma('integrity_check', { simple: true }) !== 'ok')
       throw new Error('Backup database integrity check failed');
-    if (![1, 2, 3, 4, 5, 6, 7, 8, 9, 10].includes(check.pragma('user_version', { simple: true }) as number))
+    if (!isSupportedBackupSchemaVersion(check.pragma('user_version', { simple: true }) as number))
       throw new Error('Unsupported database version');
+    if ((check.pragma('foreign_key_check') as unknown[]).length)
+      throw new Error('Backup database foreign key check failed');
     for (const row of check.prepare('SELECT manifest FROM versions').all() as {
       manifest: string;
     }[]) {
@@ -196,7 +220,9 @@ export async function seedDemos(
       });
       publish(store, manifest.id, manifest.version);
     } finally {
-      await fsp.rm(stage, { recursive: true, force: true });
+      // A durable installation intent must survive an interrupted seed operation.
+      const pending = store.sqlite.prepare("SELECT 1 FROM installations WHERE staging_path=? AND state NOT IN ('completed','quarantined')").get(path.relative(config.dataDir, stage).split(path.sep).join('/'));
+      if (!pending) await fsp.rm(stage, { recursive: true, force: true });
     }
   }
 }

@@ -36,9 +36,14 @@ export const leaderboardSchema = z.object({
 }).strict().refine((value) => value.minScore <= value.maxScore, 'Invalid score range');
 export type Leaderboard = z.infer<typeof leaderboardSchema>;
 
+export const cloudSaveDeclaration = z.object({
+  readableFormats: z.array(z.number().int().min(1).max(Number.MAX_SAFE_INTEGER)).min(1).max(32),
+  writeFormat: z.number().int().min(1).max(Number.MAX_SAFE_INTEGER),
+}).strict().refine((value) => new Set(value.readableFormats).size === value.readableFormats.length && value.readableFormats.includes(value.writeFormat), 'Readable formats must be unique and include writeFormat');
+
 export const manifestSchema = z
   .object({
-    schemaVersion: z.literal(1),
+    schemaVersion: z.union([z.literal(1), z.literal(2)]),
     id: gameId,
     name: z.string().min(1).max(80),
     version: gameVersion,
@@ -56,7 +61,12 @@ export const manifestSchema = z
       .min(1)
       .max(2),
     leaderboard: leaderboardSchema.optional(),
+    cloudSave: cloudSaveDeclaration.optional(),
   })
-  .strict();
+  .strict().refine((value) => value.schemaVersion === 2 || !value.cloudSave, 'cloudSave requires schemaVersion 2');
 
 export type GameManifest = z.infer<typeof manifestSchema>;
+
+export function cloudSaveCompatibility(manifest: GameManifest, format: number): 'compatible' | 'incompatible' | 'unknown' {
+  return !manifest.cloudSave ? 'unknown' : manifest.cloudSave.readableFormats.includes(format) ? 'compatible' : 'incompatible';
+}

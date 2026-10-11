@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { userRoleSchema, roleLabels, roleDescriptions, type UserRole, type AccountList, type ManagedAccount } from '../shared/account';
-import { api } from './api';
+import { api, ApiError, changeRole } from './api';
+import { errorAction } from '../shared/errors';
 import './admin-accounts.css';
 
 export function AdminAccounts({ username, onChanged }: { username: string; onChanged: () => Promise<void> }) {
@@ -35,11 +36,14 @@ export function AdminAccounts({ username, onChanged }: { username: string; onCha
     if (!pending) return;
     setBusy(true); setError(''); setMessage('');
     try {
-      await api(`/admin/accounts/${pending.account.id}/role`, { role: pending.role, expectedRole: pending.account.role });
+      await changeRole(pending.account.id, { role: pending.role, expectedRole: pending.account.role });
       setMessage(`${pending.account.username} 已設為${roleLabels[pending.role]}`);
       setPending(null); setRetry((n) => n + 1);
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : '無法變更角色');
+      if (reason instanceof ApiError && ['refresh-state', 'refresh-session'].includes(errorAction(reason.code, reason.status))) {
+        setPending(null); setRetry((n) => n + 1);
+      }
     } finally {
       setBusy(false);
       try { await onChanged(); } catch { setError('無法同步目前權限，請重新整理頁面'); }

@@ -9,6 +9,7 @@ import { eq } from 'drizzle-orm';
 import { usernameSchema } from '../shared/account.js';
 import { passwordHash } from './auth.js';
 import { backup, restore, seedDemos } from './maintenance.js';
+import { importDiagnosis, repairImport, versionRetention, withImportMaintenance, withImportRepair } from './import-maintenance.js';
 
 if (fs.existsSync('.env')) process.loadEnvFile('.env');
 const config = getConfig();
@@ -38,7 +39,14 @@ async function readPassword(): Promise<string> {
   });
 }
 try {
-  if (command === 'backup') {
+  if (command === 'imports:diagnose' || command === 'versions:report' || command === 'imports:repair') {
+    if (command === 'imports:repair' && (!arg || process.argv.includes('--dry-run')))
+      throw new Error('Usage: npm run imports:repair -- <installation-or-orphan-id>; use imports:diagnose for dry-run');
+    const result = command === 'imports:repair'
+      ? await withImportRepair(config, (store) => repairImport(store, config, arg!))
+      : await withImportMaintenance<unknown>(config, (store) => command === 'imports:diagnose' ? importDiagnosis(store, config) : versionRetention(store, config));
+    console.info(JSON.stringify(result, null, 2));
+  } else if (command === 'backup') {
     if (!arg) throw new Error('Usage: npm run backup -- /path/to/new-backup-folder');
     await backup(config.dataDir, path.resolve(arg));
     console.info(`Backup complete: ${path.resolve(arg)}`);
@@ -87,7 +95,7 @@ try {
     }
   } else
     throw new Error(
-      'Commands: admin:init [username], demo:seed, backup <folder>, restore <folder>',
+      'Commands: admin:init [username], demo:seed, backup <folder>, restore <folder>, imports:diagnose, imports:repair <id>, versions:report',
     );
 } catch (error) {
   console.error((error as Error).message);

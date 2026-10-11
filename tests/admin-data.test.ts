@@ -1,0 +1,70 @@
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { mkdtempSync, rmSync } from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import Fastify from 'fastify';
+import { openStore } from '../server/db.js';
+import { AppError } from '../server/errors.js';
+import { seedAdminScale } from './fixtures/admin-scale.js';
+import { readGamePage, readVersionPage, readVersion, readSourcePage, readUpdatePage, readSelection, readAdminTasks, registerAdminDataRoutes } from '../server/admin-data.js';
+
+test('admin pages bound row and manifest reads, preserve server filters and stable paging after changes', () => {
+  const directory = mkdtempSync(path.join(os.tmpdir(), 'playroom-admin-page-'));
+  const store = openStore(directory);
+  try {
+    seedAdminScale(store, 130, 20);
+    const first = readGamePage(store, { size: 20 });
+    assert.equal(first.total, 130); assert.equal(first.items.length, 20);
+    assert.equal(first.items[0].id, 'scale-0000');
+    assert.ok(!JSON.stringify(first).includes('manifest'));
+    assert.ok(!JSON.stringify(first).includes('schemaVersion'));
+    assert.equal(readGamePage(store, { size: 20, page: 2 }).items[0].id, 'scale-0020');
+    assert.equal(readGamePage(store, { status: 'published' }).total, 65);
+    assert.equal(readGamePage(store, { status: 'unpublished' }).total, 65);
+    assert.equal(readGamePage(store, { status: 'pending' }).total, 130);
+    assert.equal(readGamePage(store, { q: 'scale/game-001' }).total, 10);
+    assert.equal(readGamePage(store, { q: '%' }).total, 0, 'search wildcards are literal');
+    assert.equal(readGamePage(store, { page: 999, size: 20 }).page, 7);
+    assert.equal(readGamePage(store, { q: 'absent', page: 999 }).page, 1);
+    assert.throws(() => readGamePage(store, { size: 101 }));
+    const versions = readVersionPage(store, 'scale-0000', { size: 10, page: 2 });
+    assert.equal(versions.total, 20); assert.equal(versions.items.length, 10);
+    assert.ok(!JSON.stringify(versions).includes('manifest'));
+    assert.equal(readVersion(store, 'scale-0000', '1.0.0').manifest.id, 'scale-0000');
+    assert.equal(readVersionPage(store, 'scale-0000', { q: '20.0' }).items[0].version, '20.0.0');
+    assert.equal(readSourcePage(store, { size: 25, page: 2 }).items.length, 25);
+    assert.equal(readSourcePage(store, { owner: 'scale', q: 'game-000', size: 5 }).total, 10);
+    store.sqlite.prepare('UPDATE repositories SET archived = 1 WHERE id = 1').run();
+    assert.equal(readSourcePage(store, { scope: 'archived' }).items[0].id, 1);
+    const updates = readUpdatePage(store, { size: 25, status: 'ready' });
+    assert.equal(updates.items.length, 25); assert.equal(updates.total, 129);
+    assert.ok(!JSON.stringify(updates).includes('manifest'));
+    assert.equal(readSelection(store, ['repo:2', 'repo:130', 'repo:999999']).length, 2);
+    const selected = readSelection(store, ['repo:2'], { 'scale-0001': '19.0.0' });
+    assert.equal(selected[0].draft?.version, '19.0.0');
+    store.sqlite.prepare("UPDATE games SET active_version='20.0.0' WHERE id='scale-0001'").run();
+    assert.equal(readSelection(store, ['repo:2'])[0].draft, undefined, 'server recomputes stale candidates');
+    const statements: string[] = [], prepare = store.sqlite.prepare.bind(store.sqlite);
+    store.sqlite.prepare = ((sql: string) => { statements.push(sql); return prepare(sql); }) as typeof store.sqlite.prepare;
+    assert.equal(readAdminTasks(store).pending, 0);
+    assert.ok(statements.every((sql) => !/\bversions\b|\bmanifest\b/i.test(sql)), 'task polling never reads versions');
+  } finally { store.sqlite.close(); rmSync(directory, { recursive: true, force: true }); }
+});
+
+test('admin read endpoints recheck permission and reject oversize selection/page inputs', async (t) => {
+  const directory = mkdtempSync(path.join(os.tmpdir(), 'playroom-admin-routes-'));
+  const store = openStore(directory), app = Fastify();
+  seedAdminScale(store, 2, 2);
+  let permitted = true;
+  app.setErrorHandler((error, _request, reply) => reply.code(error instanceof AppError ? error.statusCode : 400).send({ error: (error as Error).message }));
+  registerAdminDataRoutes(app, store, async () => { if (!permitted) throw new AppError(403, '沒有權限'); });
+  t.after(async () => { await app.close(); store.sqlite.close(); rmSync(directory, { recursive: true, force: true }); });
+  const routes = ['/admin/games', '/admin/games/scale-0000', '/admin/games/scale-0000/versions', '/admin/games/scale-0000/versions/1.0.0', '/admin/source-list', '/admin/source-list/1', '/admin/source-owners', '/admin/update-candidates', '/admin/summary', '/admin/tasks'];
+  for (const route of routes) assert.equal((await app.inject({ url: '/api/v1' + route })).statusCode, 200, route);
+  assert.equal((await app.inject({ url: '/api/v1/admin/games?size=101' })).statusCode, 400);
+  assert.equal((await app.inject({ method: 'POST', url: '/api/v1/admin/update-candidates/selection', payload: { keys: Array.from({ length: 101 }, (_, i) => `repo:${i}`) } })).statusCode, 400);
+  permitted = false;
+  for (const route of routes) assert.equal((await app.inject({ url: '/api/v1' + route })).statusCode, 403, route);
+  assert.equal((await app.inject({ method: 'POST', url: '/api/v1/admin/update-candidates/selection', payload: { keys: ['repo:1'] } })).statusCode, 403);
+});

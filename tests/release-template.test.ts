@@ -9,6 +9,31 @@ import { makeZip } from './helpers.js';
 
 const run = promisify(execFile);
 
+test('release workflow verifies a pinned archive and rejects changed checksum or unsafe lock paths', async (t) => {
+  const temporary = await fs.mkdtemp(path.join(os.tmpdir(), 'playroom-tool-lock-'));
+  t.after(() => fs.rm(temporary, { recursive: true, force: true }));
+  await run(process.execPath, ['--import', 'tsx', 'scripts/build-game-tools.ts']);
+  const workflow = await fs.readFile('templates/game-release.yml', 'utf8');
+  const checks = [...workflow.matchAll(/node --input-type=module <<'JS'\r?\n([\s\S]*?)\r?\n\s+JS/g)].map((match) => match[1]);
+  assert.equal(checks.length, 3);
+  const lock = JSON.parse(await fs.readFile('templates/game-tools.lock.json', 'utf8'));
+  const lockFile = path.join(temporary, '.playroom', 'game-tools.lock.json');
+  await fs.mkdir(path.dirname(path.join(temporary, lock.archive)), { recursive: true });
+  await fs.copyFile(`artifacts/playroom-game-tools-${lock.toolsVersion}.zip`, path.join(temporary, lock.archive));
+  await fs.writeFile(lockFile, JSON.stringify(lock));
+  const envFile = path.join(temporary, 'github-env');
+  const env = { ...process.env, GITHUB_ENV: envFile };
+  await run(process.execPath, ['--input-type=module', '--eval', checks[1]], { env, cwd: temporary });
+  assert.match(await fs.readFile(envFile, 'utf8'), /TOOLS_VERSION=1.1.0/);
+  await fs.writeFile(lockFile, JSON.stringify({ ...lock, sha256: '0'.repeat(64) }));
+  await assert.rejects(run(process.execPath, ['--input-type=module', '--eval', checks[1]], { env, cwd: temporary }), /checksum differs/);
+  await fs.writeFile(lockFile, JSON.stringify({ ...lock, archive: '../outside.zip' }));
+  await assert.rejects(run(process.execPath, ['--input-type=module', '--eval', checks[1]], { env, cwd: temporary }), /archive path/);
+  const verified = { ...env, PLATFORM_DIR: path.resolve('artifacts/game-tools/1.1.0'), TOOLS_VERSION: '1.1.0', TOOLS_SHA256: lock.sha256 };
+  await run(process.execPath, ['--input-type=module', '--eval', checks[2]], { env: verified });
+  await assert.rejects(run(process.execPath, ['--input-type=module', '--eval', checks[2]], { env: { ...verified, TOOLS_VERSION: '9.0.0' } }), /metadata version differs/);
+});
+
 test('release version check uses environment values and rejects mismatched tags', async (t) => {
   const temporary = await fs.mkdtemp(path.join(os.tmpdir(), 'playroom-release-'));
   t.after(() => fs.rm(temporary, { recursive: true, force: true }));

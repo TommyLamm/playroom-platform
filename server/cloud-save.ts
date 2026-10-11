@@ -1,50 +1,40 @@
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import type { Store } from './db.js';
-import { AppError } from './errors.js';
 import { gameId } from '../shared/manifest.js';
-import { saveProgressRequest, type ProgressSave } from '../shared/cloud-save.js';
+import { saveProgressRequest, loadProgressQuery, restoreProgressRequest } from '../shared/cloud-save.js';
+import { createCloudSaveService } from './cloud-save-service.js';
 
-type Row = { data: string; revision: number; format_version: number; game_version: string; updated_at: string; request_id: string };
 export function registerCloudSave(platform: FastifyInstance, store: Store, requireUser: (request: FastifyRequest) => Promise<void>) {
-  const sql = store.sqlite;
+  const service = createCloudSaveService(store);
+  const params = z.object({ id: gameId });
+  const emptyQuery = z.object({}).strict();
   const options = (max: number) => ({ onRequest: requireUser, config: { rateLimit: {
     hook: 'preHandler' as const, max, timeWindow: '1 minute',
     keyGenerator: (request: FastifyRequest) => String(request.userSession!.userId),
   } } });
-  function available(request: FastifyRequest) {
-    const { id } = z.object({ id: gameId }).parse(request.params);
-    if (!sql.prepare('SELECT 1 FROM games WHERE id=? AND published=1').get(id)) throw new AppError(404, '這款遊戲尚未上架或已下架');
-    return id;
-  }
-  const read = (user: number, id: string) => sql.prepare('SELECT * FROM cloud_saves WHERE user_id=? AND game_id=?').get(user, id) as Row | undefined;
-  const view = (row: Row): ProgressSave => ({ data: JSON.parse(row.data), revision: row.revision, formatVersion: row.format_version, gameVersion: row.game_version, updatedAt: row.updated_at });
+
   platform.get('/api/v1/games/:id/save', options(120), async (request) => {
-    z.object({}).strict().parse(request.query);
-    const row = read(request.userSession!.userId, available(request));
-    return row ? view(row) : null;
+    const query = loadProgressQuery.parse(request.query);
+    const { id } = params.parse(request.params);
+    return service.load(request.userSession!.userId, id, query.version);
   });
   platform.post('/api/v1/games/:id/save', { ...options(60), bodyLimit: 96 * 1024 }, async (request) => {
-    z.object({}).strict().parse(request.query);
-    const id = available(request);
-    const input = saveProgressRequest.parse(request.body);
-    if (!sql.prepare('SELECT 1 FROM versions WHERE game_id=? AND version=? AND published_at IS NOT NULL').get(id, input.version)) throw new AppError(404, '找不到已發布的遊戲版本');
-    const user = request.userSession!.userId;
-    const data = JSON.stringify(input.data);
-    return sql.transaction(() => {
-      const previous = read(user, id);
-      if (previous?.request_id === input.requestId) {
-        if (previous.data !== data || previous.format_version !== input.formatVersion || previous.game_version !== input.version || previous.revision !== input.revision + 1) throw new AppError(409, '存檔請求識別已被使用');
-        return { saved: true, ...view(previous) };
-      }
-      if ((previous?.revision ?? 0) !== input.revision) throw new AppError(409, '另一台設備已更新進度，請重新讀取存檔後再保存');
-      const updatedAt = new Date().toISOString();
-      sql.prepare(`INSERT INTO cloud_saves (user_id,game_id,data,revision,format_version,game_version,updated_at,request_id)
-        VALUES (?,?,?,?,?,?,?,?) ON CONFLICT(user_id,game_id) DO UPDATE SET
-        data=excluded.data,revision=excluded.revision,format_version=excluded.format_version,
-        game_version=excluded.game_version,updated_at=excluded.updated_at,request_id=excluded.request_id`)
-        .run(user, id, data, input.revision + 1, input.formatVersion, input.version, updatedAt, input.requestId);
-      return { saved: true, ...view(read(user, id)!) };
-    })();
+    emptyQuery.parse(request.query);
+    const { id } = params.parse(request.params);
+    service.requireAvailable(id);
+    return service.save(request.userSession!.userId, id, saveProgressRequest.parse(request.body));
+  });
+  // Owner-only recovery surface; deliberately unavailable through the game SDK.
+  platform.get('/api/v1/games/:id/save/snapshots', options(120), async (request) => {
+    emptyQuery.parse(request.query);
+    const { id } = params.parse(request.params);
+    return service.snapshots(request.userSession!.userId, id);
+  });
+  platform.post('/api/v1/games/:id/save/restore', options(60), async (request) => {
+    emptyQuery.parse(request.query);
+    const { id } = params.parse(request.params);
+    service.requireAvailable(id);
+    return service.restore(request.userSession!.userId, id, restoreProgressRequest.parse(request.body));
   });
 }

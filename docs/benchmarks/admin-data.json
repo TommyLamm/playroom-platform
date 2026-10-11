@@ -1,0 +1,186 @@
+{
+  "command": "npx tsx scripts/benchmark-admin-data.ts",
+  "node": "v24.11.1",
+  "platform": "win32/x64",
+  "fixture": {
+    "games": 1000,
+    "versionsPerGame": 20,
+    "totalVersions": 20000,
+    "store": "temporary SQLite WAL"
+  },
+  "legacyOverview": {
+    "runs": [
+      {
+        "bytes": 10979218,
+        "queries": 4,
+        "queryAndProcessingMs": 259.30820000000006,
+        "serializationMs": 39.61159999999995
+      },
+      {
+        "bytes": 10979218,
+        "queries": 4,
+        "queryAndProcessingMs": 279.0473999999999,
+        "serializationMs": 42.40300000000002
+      },
+      {
+        "bytes": 10979218,
+        "queries": 4,
+        "queryAndProcessingMs": 292.7748999999999,
+        "serializationMs": 43.031200000000126
+      },
+      {
+        "bytes": 10979218,
+        "queries": 4,
+        "queryAndProcessingMs": 259.8466000000001,
+        "serializationMs": 42.00390000000016
+      },
+      {
+        "bytes": 10979218,
+        "queries": 4,
+        "queryAndProcessingMs": 270.2523000000001,
+        "serializationMs": 43.94889999999987
+      }
+    ],
+    "medianMs": 270.2523000000001
+  },
+  "gamePage25": {
+    "runs": [
+      {
+        "bytes": 13492,
+        "queries": 3,
+        "queryAndProcessingMs": 9.226000000000113,
+        "serializationMs": 0.047700000000077125
+      },
+      {
+        "bytes": 13492,
+        "queries": 3,
+        "queryAndProcessingMs": 6.091399999999794,
+        "serializationMs": 0.05320000000028813
+      },
+      {
+        "bytes": 13492,
+        "queries": 3,
+        "queryAndProcessingMs": 6.047299999999723,
+        "serializationMs": 0.04270000000042273
+      },
+      {
+        "bytes": 13492,
+        "queries": 3,
+        "queryAndProcessingMs": 9.393199999999979,
+        "serializationMs": 0.05150000000003274
+      },
+      {
+        "bytes": 13492,
+        "queries": 3,
+        "queryAndProcessingMs": 6.666999999999916,
+        "serializationMs": 0.05519999999978609
+      }
+    ],
+    "medianMs": 6.666999999999916
+  },
+  "versionPage10": {
+    "runs": [
+      {
+        "bytes": 2752,
+        "queries": 4,
+        "queryAndProcessingMs": 0.5916000000001986,
+        "serializationMs": 0.018000000000029104
+      },
+      {
+        "bytes": 2752,
+        "queries": 4,
+        "queryAndProcessingMs": 0.35940000000027794,
+        "serializationMs": 0.01569999999992433
+      },
+      {
+        "bytes": 2752,
+        "queries": 4,
+        "queryAndProcessingMs": 0.34589999999980137,
+        "serializationMs": 0.014699999999720603
+      },
+      {
+        "bytes": 2752,
+        "queries": 4,
+        "queryAndProcessingMs": 0.35849999999982174,
+        "serializationMs": 0.013300000000072032
+      },
+      {
+        "bytes": 2752,
+        "queries": 4,
+        "queryAndProcessingMs": 0.37609999999995125,
+        "serializationMs": 0.013399999999819556
+      }
+    ],
+    "medianMs": 0.35940000000027794
+  },
+  "updatePage25": {
+    "runs": [
+      {
+        "bytes": 158943,
+        "queries": 6,
+        "queryAndProcessingMs": 196.25970000000007,
+        "serializationMs": 0.40380000000004657
+      },
+      {
+        "bytes": 158943,
+        "queries": 6,
+        "queryAndProcessingMs": 184.88760000000002,
+        "serializationMs": 0.4873999999999796
+      },
+      {
+        "bytes": 158943,
+        "queries": 6,
+        "queryAndProcessingMs": 202.69489999999996,
+        "serializationMs": 0.4227000000000771
+      },
+      {
+        "bytes": 158943,
+        "queries": 6,
+        "queryAndProcessingMs": 207.48309999999992,
+        "serializationMs": 0.5533999999997832
+      },
+      {
+        "bytes": 158943,
+        "queries": 6,
+        "queryAndProcessingMs": 214.44569999999976,
+        "serializationMs": 0.42219999999997526
+      }
+    ],
+    "medianMs": 202.69489999999996
+  },
+  "taskStatus": {
+    "runs": [
+      {
+        "bytes": 37,
+        "queries": 2,
+        "queryAndProcessingMs": 0.18640000000004875,
+        "serializationMs": 0.0032999999998537533
+      },
+      {
+        "bytes": 37,
+        "queries": 2,
+        "queryAndProcessingMs": 0.056499999999687134,
+        "serializationMs": 0.0018000000000029104
+      },
+      {
+        "bytes": 37,
+        "queries": 2,
+        "queryAndProcessingMs": 0.049500000000080036,
+        "serializationMs": 0.0018000000000029104
+      },
+      {
+        "bytes": 37,
+        "queries": 2,
+        "queryAndProcessingMs": 0.044800000000122964,
+        "serializationMs": 0.0016000000000531145
+      },
+      {
+        "bytes": 37,
+        "queries": 2,
+        "queryAndProcessingMs": 0.04550000000017462,
+        "serializationMs": 0.0016999999998006388
+      }
+    ],
+    "medianMs": 0.049500000000080036
+  }
+}

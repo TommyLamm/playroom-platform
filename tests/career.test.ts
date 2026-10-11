@@ -1,3 +1,4 @@
+import { CURRENT_SCHEMA_VERSION } from '../server/database/version.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
@@ -106,7 +107,7 @@ test('careers and scores: ownership, idempotency, ranking, rules, activity and r
   async function install(version: string, boardId: string | null, order: 'asc' | 'desc' = 'desc', maxScore = 10000) {
     const baseManifest = JSON.parse(await fs.readFile('examples/starter/game.json', 'utf8'));
     const game = manifestSchema.parse({ ...baseManifest, version, leaderboard: boardId ? { id: boardId, order, unit: '分', minScore: 0, maxScore } : undefined });
-    const stage = path.join(root, `stage-${randomUUID()}`);
+    const stage = path.join(config.dataDir, 'staging', `stage-${randomUUID()}`);
     await fs.cp('examples/starter', stage, { recursive: true });
     await fs.writeFile(path.join(stage, 'game.json'), JSON.stringify(game));
     await installVersion(store, config, stage, game, { repositoryId: null, releaseId: null, assetId: null, releaseTag: null, sha256: 'a'.repeat(64) });
@@ -146,14 +147,14 @@ test('careers and scores: ownership, idempotency, ranking, rules, activity and r
     await restore(destination, restoredDir);
     const recovered = openStore(restoredDir);
     try {
-      assert.equal(recovered.sqlite.pragma('user_version', { simple: true }), 10);
+      assert.equal(recovered.sqlite.pragma('user_version', { simple: true }), CURRENT_SCHEMA_VERSION);
       for (const table of ['plays', 'runs', 'best_scores']) assert.deepEqual(recovered.sqlite.prepare(`SELECT * FROM ${table} ORDER BY rowid`).all(), store.sqlite.prepare(`SELECT * FROM ${table} ORDER BY rowid`).all());
       assert.equal((recovered.sqlite.prepare('SELECT COUNT(*) n FROM sessions').get() as { n: number }).n, 0);
-      recovered.sqlite.exec('DROP TABLE import_batch_items; DROP TABLE import_batches; DROP TABLE github_owners; ALTER TABLE repositories DROP COLUMN archived; ALTER TABLE repositories DROP COLUMN checked_at; ALTER TABLE repositories DROP COLUMN check_error; ALTER TABLE repositories DROP COLUMN cached_releases; DROP TABLE visitor_events; DROP TABLE account_settings; DROP TABLE score_submission_metrics; DROP TABLE operational_state; DROP TABLE favorites; DROP TABLE best_scores; DROP TABLE runs; DROP TABLE plays; PRAGMA user_version=2;');
+      recovered.sqlite.exec('DROP TABLE import_batch_items; DROP TABLE import_batches; DROP TABLE github_owners; ALTER TABLE repositories DROP COLUMN archived; ALTER TABLE repositories DROP COLUMN checked_at; ALTER TABLE repositories DROP COLUMN check_error; ALTER TABLE repositories DROP COLUMN cached_releases; DROP TABLE visitor_events; DROP TABLE account_settings; DROP TABLE score_submission_metrics; DROP TABLE operational_state; DROP TABLE favorites; DROP TABLE best_scores; DROP TABLE runs; DROP TABLE plays; DROP TABLE installations; DROP TABLE cloud_save_snapshots; DROP INDEX cloud_saves_game_format; ALTER TABLE cloud_saves DROP COLUMN source_snapshot_id; PRAGMA user_version=2;');
     } finally { recovered.sqlite.close(); }
     const upgraded = openStore(restoredDir);
     try {
-      assert.equal(upgraded.sqlite.pragma('user_version', { simple: true }), 10);
+      assert.equal(upgraded.sqlite.pragma('user_version', { simple: true }), CURRENT_SCHEMA_VERSION);
       assert.equal((upgraded.sqlite.prepare('SELECT COUNT(*) n FROM users').get() as { n: number }).n, 2);
     } finally { upgraded.sqlite.close(); }
   });

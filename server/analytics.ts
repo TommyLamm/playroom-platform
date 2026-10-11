@@ -58,8 +58,9 @@ export function registerAnalytics(platform: FastifyInstance, store: Store, confi
       const [volume, dataBytes, gameBytes] = await Promise.all([
         fs.statfs(config.dataDir).catch(() => null), directoryBytes(config.dataDir), directoryBytes(path.join(config.dataDir, 'games')),
       ]);
+      const snapshots = sql.prepare('SELECT count(*) AS snapshotCount, COALESCE(sum(length(CAST(data AS BLOB))),0) AS snapshotDataBytes FROM cloud_save_snapshots').get() as { snapshotCount: number; snapshotDataBytes: number };
       return { totalBytes: volume ? volume.blocks * volume.bsize : null,
-        availableBytes: volume ? volume.bavail * volume.bsize : null, dataBytes, gameBytes, measuredAt: new Date().toISOString() };
+        availableBytes: volume ? volume.bavail * volume.bsize : null, dataBytes, gameBytes, ...snapshots, measuredAt: new Date().toISOString() };
     })();
     storageCache = { expires: Date.now() + 30000, value };
     return value;

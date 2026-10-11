@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { gameId } from '../shared/manifest.js';
 import type { PlayerLibrary } from '../shared/player-library.js';
 import type { Store } from './db.js';
-import { AppError } from './errors.js';
+import { requirePublicGame } from './game-catalog.js';
 
 export function registerPlayerLibrary(
   platform: FastifyInstance,
@@ -40,8 +40,7 @@ export function registerPlayerLibrary(
     const { favorite } = z.object({ favorite: z.boolean() }).strict().parse(request.body);
     const userId = request.userSession!.userId;
     if (favorite) {
-      if (!sql.prepare('SELECT id FROM games WHERE id=? AND published=1').get(id))
-        throw new AppError(404, '這款遊戲尚未上架或已下架');
+      requirePublicGame(store, id);
       sql.prepare('INSERT INTO favorites (user_id,game_id,created_at) VALUES (?,?,?) ON CONFLICT(user_id,game_id) DO NOTHING')
         .run(userId, id, Date.now());
     } else {

@@ -17,9 +17,16 @@
     "demo:seed": "node dist/server/cli.js demo:seed",
     "backup": "node dist/server/cli.js backup",
     "restore": "node dist/server/cli.js restore",
+    "imports:diagnose": "node dist/server/cli.js imports:diagnose",
+    "imports:repair": "node dist/server/cli.js imports:repair",
+    "versions:report": "node dist/server/cli.js versions:report",
     "game:pack": "tsx scripts/pack-game.ts",
     "game:validate": "tsx scripts/validate-game.ts",
-    "game:schema": "tsx scripts/export-game-schema.ts"
+    "game:schema": "tsx scripts/export-game-schema.ts",
+    "sdk:build": "tsx scripts/build-sdk.ts",
+    "sdk:check": "tsx scripts/build-sdk.ts --check",
+    "game:tools": "tsx scripts/build-game-tools.ts",
+    "check:boundaries": "tsx scripts/check-module-boundaries.ts"
   },
   "dependencies": {
     "@fastify/cookie": "^11.0.2",
@@ -55,7 +62,7 @@
     "@types/yauzl": "^2.10.3",
     "@types/yazl": "^3.3.0",
     "@vitejs/plugin-react": "^5.0.4",
-    "concurrently": "^9.2.1",
+    "concurrently": "^9.2.5",
     "cross-env": "^10.1.0",
     "tsx": "^4.20.6",
     "typescript": "^5.9.3",

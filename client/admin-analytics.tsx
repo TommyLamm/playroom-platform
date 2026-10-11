@@ -65,6 +65,7 @@ export function AdminAnalytics({ canViewRecords = false }: { canViewRecords?: bo
       </article></div>
       {data.storage && data.backup && <><div className="analytics-section-heading"><span className="analytics-panel-icon"><Activity size={18} /></span><div><h3>平台運作</h3><p>儲存空間與最近備份的狀態。</p></div></div><div className="analytics-system"><article className="analytics-panel"><PanelHeading title="儲存空間" icon={HardDrive} /><div className="analytics-storage-value"><strong>{bytes(data.storage.dataBytes)}</strong><span>平台資料用量</span></div><dl>
         <div><dt>平台資料用量</dt><dd>{bytes(data.storage.dataBytes)}</dd></div><div><dt>其中遊戲版本檔案</dt><dd>{bytes(data.storage.gameBytes)}</dd></div>
+        {data.storage.snapshotCount !== undefined && <><div><dt>存檔快照數量</dt><dd>{count(data.storage.snapshotCount)}</dd></div><div><dt>快照資料大小</dt><dd>{bytes(data.storage.snapshotDataBytes ?? null)}</dd></div></>}
         <div><dt>磁碟可用空間</dt><dd>{bytes(data.storage.availableBytes)}</dd></div><div><dt>磁碟總容量</dt><dd>{bytes(data.storage.totalBytes)}</dd></div>
       </dl><p className="analytics-note">磁碟容量包含同一磁碟上的其他資料。平台用量包含資料庫與遊戲檔案，不追蹤符號連結。測量結果最多快取 30 秒；無法讀取時顯示未知。</p><p className="analytics-note">測量：{date(data.storage.measuredAt)}</p></article>
       <article className="analytics-panel"><PanelHeading title="最近備份" icon={Database} /><p className={`analytics-backup analytics-backup-${data.backup.status}`}><ShieldCheck size={17} />{labels[data.backup.status]}</p><dl>

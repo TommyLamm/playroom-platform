@@ -1,16 +1,47 @@
 export type ProgressSave = {
-  data: Record<string, unknown>; revision: number; formatVersion: number; gameVersion: string; updatedAt: string;
+    data: Record<string, unknown>;
+    revision: number;
+    formatVersion: number;
+    gameVersion: string;
+    updatedAt: string;
 };
-export const Playroom: {
-  ready(): Promise<{ available: boolean; progressAvailable: boolean; mode: 'authenticated' | 'guest' | 'preview' | 'standalone' }>;
-  /** null means no save (or cloud saves unavailable). Preview reads are temporary only. */
-  loadProgress(): Promise<ProgressSave | null>;
-  /** JSON object <=64 KiB. revision=0 only after a successful empty load. Errors include code (409=conflict). */
-  saveProgress(input: { data: Record<string, unknown>; revision: number; formatVersion: number; requestId?: string }): Promise<({ saved: true } & ProgressSave) | null>;
-  /** Admin diagnostic previews return a temporary run ID; no account record is created. */
-  startRun(): Promise<{ runId: string } | null>;
-  /** Diagnostic preview validates the score but always returns null, never saved: true. */
-  finishRun(result: { runId: string; score: number }): Promise<{
-    saved: true; runId: string; score: number; finishedAt: string;
-  } | null>;
+export type ReadyState = {
+    available: boolean;
+    progressAvailable: boolean;
+    mode: 'authenticated' | 'guest' | 'preview' | 'standalone';
+    sdkVersion: string;
+    protocolVersion: number;
+    capabilities: string[];
+};
+export type PlayroomError = Error & {
+    code?: number;
+    machineCode?: string;
+    details?: Record<string, string | number | boolean | null>;
+};
+export declare const Playroom: {
+    ready: () => Promise<ReadyState>;
+    /** null means unavailable or no save. SAVE_FORMAT_INCOMPATIBLE rejects unsupported formats; never initialize empty progress after a rejected read. */
+    loadProgress: () => Promise<ProgressSave | null>;
+    /** Use the Manifest writeFormat and validate/migrate data. Reuse requestId only for identical retries; only saved:true proves persistence. */
+    saveProgress: ({ data, revision, formatVersion, requestId }: {
+        data: Record<string, unknown>;
+        revision: number;
+        formatVersion: number;
+        requestId?: string;
+    }) => Promise<({
+        saved: true;
+    } & ProgressSave) | null>;
+    /** Diagnostic previews return temporary run IDs; no account run is created. */
+    startRun: () => Promise<{
+        runId: string;
+    } | null>;
+    finishRun: ({ runId, score }: {
+        runId: string;
+        score: number;
+    }) => Promise<{
+        saved: true;
+        runId: string;
+        score: number;
+        finishedAt: string;
+    } | null>;
 };

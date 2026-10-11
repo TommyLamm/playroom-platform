@@ -1,3 +1,4 @@
+import { CURRENT_SCHEMA_VERSION } from '../server/database/version.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
@@ -228,7 +229,7 @@ test('sources lifecycle: multiple owners, release checks, archive, 60 imports, r
     },
   );
   const sourceList = async () =>
-    (await req('/admin/sources', undefined, headers)).json().sources as Source[];
+    (await req('/admin/sources?size=100&scope=all', undefined, headers)).json().sources as Source[];
   await t.test(
     'checks are persisted, errors retain good results, archive never removes game data',
     async () => {
@@ -349,7 +350,7 @@ test('sources lifecycle: multiple owners, release checks, archive, 60 imports, r
       await req(`/admin/repositories/${repo.id}/check`, {}, headers);
       assert.equal((await sourceList()).find((r) => r.id === repo.id)!.status, 'current');
       await req(`/admin/repositories/${repo.id}/state`, { archived: true }, headers);
-      assert.equal((await req('/admin/overview', undefined, headers)).json().games.length, 60);
+      assert.equal((await req('/admin/summary', undefined, headers)).json().games, 60);
       await req(`/admin/repositories/${repo.id}/state`, { archived: false }, headers);
     },
   );
@@ -428,7 +429,7 @@ test('sources lifecycle: multiple owners, release checks, archive, 60 imports, r
       await restore(path.join(root, 'backup'), path.join(root, 'restored'));
       const restored = openStore(path.join(root, 'restored'));
       try {
-        assert.equal(restored.sqlite.pragma('user_version', { simple: true }), 10);
+        assert.equal(restored.sqlite.pragma('user_version', { simple: true }), CURRENT_SCHEMA_VERSION);
         for (const table of [
           'github_owners',
           'repositories',
@@ -454,11 +455,11 @@ test('schema6 migration preserves repositories and visitors and can reopen schem
   const old = openStore(root);
   old.db.insert(repositories).values({ fullName: 'alice/game', createdAt: '2026-10-01' }).run();
   old.sqlite.exec(
-    "INSERT INTO visitor_events(visitor_id,request_id,occurred_at,kind,path,ip,user_agent) VALUES ('visitor','request',1,'page_view','/','127.0.0.1',''); DROP TABLE import_batch_items; DROP TABLE import_batches; DROP TABLE github_owners; ALTER TABLE repositories DROP COLUMN archived; ALTER TABLE repositories DROP COLUMN checked_at; ALTER TABLE repositories DROP COLUMN check_error; ALTER TABLE repositories DROP COLUMN cached_releases; PRAGMA user_version=6;",
+    "INSERT INTO visitor_events(visitor_id,request_id,occurred_at,kind,path,ip,user_agent) VALUES ('visitor','request',1,'page_view','/','127.0.0.1',''); DROP TABLE import_batch_items; DROP TABLE import_batches; DROP TABLE github_owners; ALTER TABLE repositories DROP COLUMN archived; ALTER TABLE repositories DROP COLUMN checked_at; ALTER TABLE repositories DROP COLUMN check_error; ALTER TABLE repositories DROP COLUMN cached_releases; DROP TABLE installations; DROP TABLE cloud_save_snapshots; DROP INDEX cloud_saves_game_format; ALTER TABLE cloud_saves DROP COLUMN source_snapshot_id; PRAGMA user_version=6;",
   );
   old.sqlite.close();
   const migrated = openStore(root);
-  assert.equal(migrated.sqlite.pragma('user_version', { simple: true }), 10);
+  assert.equal(migrated.sqlite.pragma('user_version', { simple: true }), CURRENT_SCHEMA_VERSION);
   const repo = migrated.db.select().from(repositories).get()!;
   assert.equal(repo.fullName, 'alice/game');
   assert.equal(repo.archived, false);

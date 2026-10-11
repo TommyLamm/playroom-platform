@@ -15,7 +15,7 @@ async function sdk(page: Page, method: 'loadProgress' | 'saveProgress', input?: 
     // Import the actual game SDK in the cross-origin frame, never use the platform credentials.
     const { Playroom } = await import('./playroom-sdk.js');
     try { return { result: await Playroom[method](input) }; }
-    catch (error) { return { error: (error as Error).message, code: (error as Error & { code: number }).code }; }
+    catch (error) { return { error: (error as Error).message, code: (error as Error & { code: number }).code, machineCode: (error as Error & { machineCode: string }).machineCode }; }
   }, { method, input });
 }
 
@@ -31,11 +31,11 @@ test('cross-origin SDK saves resume on a fresh device and reject stale, forged a
   await expect(page.locator('.account-name')).toHaveText(username);
   await page.goto('/play/signal-tap');
   await expect(page.frameLocator('iframe').locator('#start')).toBeEnabled();
-  expect((await sdk(page, 'loadProgress')).result).toBeNull();
+  expect(await sdk(page, 'loadProgress')).toEqual({ result: null });
   const input = { data: { stage: 7, best: 42, inventory: ['key'] }, revision: 0, formatVersion: 1, requestId: crypto.randomUUID() };
   // Lose the first successful response. Retrying the same snapshot must not increment revision.
   let loseOnce = true;
-  await page.route('**/api/v1/games/signal-tap/save', async (route) => {
+  await page.route(/\/api\/v1\/games\/signal-tap\/save(?:\?.*)?$/, async (route) => {
     if (route.request().method() === 'POST' && loseOnce) {
       loseOnce = false;
       const response = await route.fetch();
@@ -84,7 +84,7 @@ test('failed initial loading cannot overwrite existing progress, and previews us
   await expect(page.frameLocator('iframe').locator('#start')).toBeEnabled();
   const previous = (await sdk(page, 'loadProgress')).result as { revision: number } | null;
   expect((await sdk(page, 'saveProgress', { data: { best: 71 }, revision: previous?.revision ?? 0, formatVersion: 1 })).result).toMatchObject({ saved: true });
-  await page.route('**/api/v1/games/color-hunt/save', async (route) => {
+  await page.route(/\/api\/v1\/games\/color-hunt\/save(?:\?.*)?$/, async (route) => {
     if (route.request().method() === 'GET') await route.fulfill({ status: 503, contentType: 'application/json', body: JSON.stringify({ error: '暫時無法讀取' }) });
     else await route.continue();
   });
@@ -99,7 +99,7 @@ test('failed initial loading cannot overwrite existing progress, and previews us
   await expect(game.locator('#start')).toBeEnabled();
   expect(writes).toBe(0);
   expect((await (await page.request.get('/api/v1/games/color-hunt/save')).json()).data.best).toBe(71);
-  await page.unroute('**/api/v1/games/color-hunt/save');
+  await page.unroute(/\/api\/v1\/games\/color-hunt\/save(?:\?.*)?$/);
   await page.goto('/admin');
   await selectAdminPage(page, '遊戲與版本');
   await page.getByRole('button', { name: '管理版本 色彩尋蹤', exact: true }).click();

@@ -1,0 +1,2259 @@
+[
+  {
+    "name": "account_settings",
+    "sql": "CREATE TABLE account_settings ( user_id INTEGER PRIMARY KEY REFERENCES users(id), career_visibility TEXT NOT NULL DEFAULT 'public' CHECK(career_visibility IN ('public','limited','private')) )",
+    "columns": [
+      {
+        "cid": 0,
+        "name": "user_id",
+        "type": "INTEGER",
+        "notnull": 0,
+        "dflt_value": null,
+        "pk": 1
+      },
+      {
+        "cid": 1,
+        "name": "career_visibility",
+        "type": "TEXT",
+        "notnull": 1,
+        "dflt_value": "'public'",
+        "pk": 0
+      }
+    ],
+    "foreignKeys": [
+      {
+        "id": 0,
+        "seq": 0,
+        "table": "users",
+        "from": "user_id",
+        "to": "id",
+        "on_update": "NO ACTION",
+        "on_delete": "NO ACTION",
+        "match": "NONE"
+      }
+    ],
+    "indexes": []
+  },
+  {
+    "name": "best_scores",
+    "sql": "CREATE TABLE best_scores ( user_id INTEGER NOT NULL REFERENCES users(id), game_id TEXT NOT NULL REFERENCES games(id), board_id TEXT NOT NULL, score INTEGER NOT NULL, achieved_at INTEGER NOT NULL, run_id TEXT NOT NULL REFERENCES runs(id), PRIMARY KEY(user_id, game_id, board_id) )",
+    "columns": [
+      {
+        "cid": 0,
+        "name": "user_id",
+        "type": "INTEGER",
+        "notnull": 1,
+        "dflt_value": null,
+        "pk": 1
+      },
+      {
+        "cid": 1,
+        "name": "game_id",
+        "type": "TEXT",
+        "notnull": 1,
+        "dflt_value": null,
+        "pk": 2
+      },
+      {
+        "cid": 2,
+        "name": "board_id",
+        "type": "TEXT",
+        "notnull": 1,
+        "dflt_value": null,
+        "pk": 3
+      },
+      {
+        "cid": 3,
+        "name": "score",
+        "type": "INTEGER",
+        "notnull": 1,
+        "dflt_value": null,
+        "pk": 0
+      },
+      {
+        "cid": 4,
+        "name": "achieved_at",
+        "type": "INTEGER",
+        "notnull": 1,
+        "dflt_value": null,
+        "pk": 0
+      },
+      {
+        "cid": 5,
+        "name": "run_id",
+        "type": "TEXT",
+        "notnull": 1,
+        "dflt_value": null,
+        "pk": 0
+      }
+    ],
+    "foreignKeys": [
+      {
+        "id": 0,
+        "seq": 0,
+        "table": "runs",
+        "from": "run_id",
+        "to": "id",
+        "on_update": "NO ACTION",
+        "on_delete": "NO ACTION",
+        "match": "NONE"
+      },
+      {
+        "id": 1,
+        "seq": 0,
+        "table": "games",
+        "from": "game_id",
+        "to": "id",
+        "on_update": "NO ACTION",
+        "on_delete": "NO ACTION",
+        "match": "NONE"
+      },
+      {
+        "id": 2,
+        "seq": 0,
+        "table": "users",
+        "from": "user_id",
+        "to": "id",
+        "on_update": "NO ACTION",
+        "on_delete": "NO ACTION",
+        "match": "NONE"
+      }
+    ],
+    "indexes": [
+      {
+        "name": "best_scores_ranking",
+        "unique": 0,
+        "origin": "c",
+        "partial": 0,
+        "columns": [
+          {
+            "seqno": 0,
+            "cid": 1,
+            "name": "game_id",
+            "desc": 0,
+            "coll": "BINARY",
+            "key": 1
+          },
+          {
+            "seqno": 1,
+            "cid": 2,
+            "name": "board_id",
+            "desc": 0,
+            "coll": "BINARY",
+            "key": 1
+          },
+          {
+            "seqno": 2,
+            "cid": 3,
+            "name": "score",
+            "desc": 0,
+            "coll": "BINARY",
+            "key": 1
+          },
+          {
+            "seqno": 3,
+            "cid": 4,
+            "name": "achieved_at",
+            "desc": 0,
+            "coll": "BINARY",
+            "key": 1
+          },
+          {
+            "seqno": 4,
+            "cid": 0,
+            "name": "user_id",
+            "desc": 0,
+            "coll": "BINARY",
+            "key": 1
+          },
+          {
+            "seqno": 5,
+            "cid": -1,
+            "name": null,
+            "desc": 0,
+            "coll": "BINARY",
+            "key": 0
+          }
+        ]
+      },
+      {
+        "name": "sqlite_autoindex_best_scores_1",
+        "unique": 1,
+        "origin": "pk",
+        "partial": 0,
+        "columns": [
+          {
+            "seqno": 0,
+            "cid": 0,
+            "name": "user_id",
+            "desc": 0,
+            "coll": "BINARY",
+            "key": 1
+          },
+          {
+            "seqno": 1,
+            "cid": 1,
+            "name": "game_id",
+            "desc": 0,
+            "coll": "BINARY",
+            "key": 1
+          },
+          {
+            "seqno": 2,
+            "cid": 2,
+            "name": "board_id",
+            "desc": 0,
+            "coll": "BINARY",
+            "key": 1
+          },
+          {
+            "seqno": 3,
+            "cid": -1,
+            "name": null,
+            "desc": 0,
+            "coll": "BINARY",
+            "key": 0
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "cloud_saves",
+    "sql": "CREATE TABLE cloud_saves ( user_id INTEGER NOT NULL REFERENCES users(id), game_id TEXT NOT NULL REFERENCES games(id), data TEXT NOT NULL, revision INTEGER NOT NULL CHECK(revision>0), format_version INTEGER NOT NULL, game_version TEXT NOT NULL, updated_at TEXT NOT NULL, request_id TEXT NOT NULL, PRIMARY KEY(user_id,game_id) )",
+    "columns": [
+      {
+        "cid": 0,
+        "name": "user_id",
+        "type": "INTEGER",
+        "notnull": 1,
+        "dflt_value": null,
+        "pk": 1
+      },
+      {
+        "cid": 1,
+        "name": "game_id",
+        "type": "TEXT",
+        "notnull": 1,
+        "dflt_value": null,
+        "pk": 2
+      },
+      {
+        "cid": 2,
+        "name": "data",
+        "type": "TEXT",
+        "notnull": 1,
+        "dflt_value": null,
+        "pk": 0
+      },
+      {
+        "cid": 3,
+        "name": "revision",
+        "type": "INTEGER",
+        "notnull": 1,
+        "dflt_value": null,
+        "pk": 0
+      },
+      {
+        "cid": 4,
+        "name": "format_version",
+        "type": "INTEGER",
+        "notnull": 1,
+        "dflt_value": null,
+        "pk": 0
+      },
+      {
+        "cid": 5,
+        "name": "game_version",
+        "type": "TEXT",
+        "notnull": 1,
+        "dflt_value": null,
+        "pk": 0
+      },
+      {
+        "cid": 6,
+        "name": "updated_at",
+        "type": "TEXT",
+        "notnull": 1,
+        "dflt_value": null,
+        "pk": 0
+      },
+      {
+        "cid": 7,
+        "name": "request_id",
+        "type": "TEXT",
+        "notnull": 1,
+        "dflt_value": null,
+        "pk": 0
+      }
+    ],
+    "foreignKeys": [
+      {
+        "id": 0,
+        "seq": 0,
+        "table": "games",
+        "from": "game_id",
+        "to": "id",
+        "on_update": "NO ACTION",
+        "on_delete": "NO ACTION",
+        "match": "NONE"
+      },
+      {
+        "id": 1,
+        "seq": 0,
+        "table": "users",
+        "from": "user_id",
+        "to": "id",
+        "on_update": "NO ACTION",
+        "on_delete": "NO ACTION",
+        "match": "NONE"
+      }
+    ],
+    "indexes": [
+      {
+        "name": "sqlite_autoindex_cloud_saves_1",
+        "unique": 1,
+        "origin": "pk",
+        "partial": 0,
+        "columns": [
+          {
+            "seqno": 0,
+            "cid": 0,
+            "name": "user_id",
+            "desc": 0,
+            "coll": "BINARY",
+            "key": 1
+          },
+          {
+            "seqno": 1,
+            "cid": 1,
+            "name": "game_id",
+            "desc": 0,
+            "coll": "BINARY",
+            "key": 1
+          },
+          {
+            "seqno": 2,
+            "cid": -1,
+            "name": null,
+            "desc": 0,
+            "coll": "BINARY",
+            "key": 0
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "favorites",
+    "sql": "CREATE TABLE favorites ( user_id INTEGER NOT NULL REFERENCES users(id), game_id TEXT NOT NULL REFERENCES games(id), created_at INTEGER NOT NULL, PRIMARY KEY(user_id, game_id) )",
+    "columns": [
+      {
+        "cid": 0,
+        "name": "user_id",
+        "type": "INTEGER",
+        "notnull": 1,
+        "dflt_value": null,
+        "pk": 1
+      },
+      {
+        "cid": 1,
+        "name": "game_id",
+        "type": "TEXT",
+        "notnull": 1,
+        "dflt_value": null,
+        "pk": 2
+      },
+      {
+        "cid": 2,
+        "name": "created_at",
+        "type": "INTEGER",
+        "notnull": 1,
+        "dflt_value": null,
+        "pk": 0
+      }
+    ],
+    "foreignKeys": [
+      {
+        "id": 0,
+        "seq": 0,
+        "table": "games",
+        "from": "game_id",
+        "to": "id",
+        "on_update": "NO ACTION",
+        "on_delete": "NO ACTION",
+        "match": "NONE"
+      },
+      {
+        "id": 1,
+        "seq": 0,
+        "table": "users",
+        "from": "user_id",
+        "to": "id",
+        "on_update": "NO ACTION",
+        "on_delete": "NO ACTION",
+        "match": "NONE"
+      }
+    ],
+    "indexes": [
+      {
+        "name": "favorites_user_created",
+        "unique": 0,
+        "origin": "c",
+        "partial": 0,
+        "columns": [
+          {
+            "seqno": 0,
+            "cid": 0,
+            "name": "user_id",
+            "desc": 0,
+            "coll": "BINARY",
+            "key": 1
+          },
+          {
+            "seqno": 1,
+            "cid": 2,
+            "name": "created_at",
+            "desc": 1,
+            "coll": "BINARY",
+            "key": 1
+          },
+          {
+            "seqno": 2,
+            "cid": 1,
+            "name": "game_id",
+            "desc": 0,
+            "coll": "BINARY",
+            "key": 1
+          },
+          {
+            "seqno": 3,
+            "cid": -1,
+            "name": null,
+            "desc": 0,
+            "coll": "BINARY",
+            "key": 0
+          }
+        ]
+      },
+      {
+        "name": "sqlite_autoindex_favorites_1",
+        "unique": 1,
+        "origin": "pk",
+        "partial": 0,
+        "columns": [
+          {
+            "seqno": 0,
+            "cid": 0,
+            "name": "user_id",
+            "desc": 0,
+            "coll": "BINARY",
+            "key": 1
+          },
+          {
+            "seqno": 1,
+            "cid": 1,
+            "name": "game_id",
+            "desc": 0,
+            "coll": "BINARY",
+            "key": 1
+          },
+          {
+            "seqno": 2,
+            "cid": -1,
+            "name": null,
+            "desc": 0,
+            "coll": "BINARY",
+            "key": 0
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "games",
+    "sql": "CREATE TABLE games (id TEXT PRIMARY KEY, repository_id INTEGER UNIQUE REFERENCES repositories(id), active_version TEXT, published INTEGER NOT NULL DEFAULT 0)",
+    "columns": [
+      {
+        "cid": 0,
+        "name": "id",
+        "type": "TEXT",
+        "notnull": 0,
+        "dflt_value": null,
+        "pk": 1
+      },
+      {
+        "cid": 1,
+        "name": "repository_id",
+        "type": "INTEGER",
+        "notnull": 0,
+        "dflt_value": null,
+        "pk": 0
+      },
+      {
+        "cid": 2,
+        "name": "active_version",
+        "type": "TEXT",
+        "notnull": 0,
+        "dflt_value": null,
+        "pk": 0
+      },
+      {
+        "cid": 3,
+        "name": "published",
+        "type": "INTEGER",
+        "notnull": 1,
+        "dflt_value": "0",
+        "pk": 0
+      }
+    ],
+    "foreignKeys": [
+      {
+        "id": 0,
+        "seq": 0,
+        "table": "repositories",
+        "from": "repository_id",
+        "to": "id",
+        "on_update": "NO ACTION",
+        "on_delete": "NO ACTION",
+        "match": "NONE"
+      }
+    ],
+    "indexes": [
+      {
+        "name": "sqlite_autoindex_games_1",
+        "unique": 1,
+        "origin": "pk",
+        "partial": 0,
+        "columns": [
+          {
+            "seqno": 0,
+            "cid": 0,
+            "name": "id",
+            "desc": 0,
+            "coll": "BINARY",
+            "key": 1
+          },
+          {
+            "seqno": 1,
+            "cid": -1,
+            "name": null,
+            "desc": 0,
+            "coll": "BINARY",
+            "key": 0
+          }
+        ]
+      },
+      {
+        "name": "sqlite_autoindex_games_2",
+        "unique": 1,
+        "origin": "u",
+        "partial": 0,
+        "columns": [
+          {
+            "seqno": 0,
+            "cid": 1,
+            "name": "repository_id",
+            "desc": 0,
+            "coll": "BINARY",
+            "key": 1
+          },
+          {
+            "seqno": 1,
+            "cid": -1,
+            "name": null,
+            "desc": 0,
+            "coll": "BINARY",
+            "key": 0
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "github_owners",
+    "sql": "CREATE TABLE github_owners (login TEXT PRIMARY KEY COLLATE NOCASE, kind TEXT NOT NULL, created_at TEXT NOT NULL)",
+    "columns": [
+      {
+        "cid": 0,
+        "name": "login",
+        "type": "TEXT",
+        "notnull": 0,
+        "dflt_value": null,
+        "pk": 1
+      },
+      {
+        "cid": 1,
+        "name": "kind",
+        "type": "TEXT",
+        "notnull": 1,
+        "dflt_value": null,
+        "pk": 0
+      },
+      {
+        "cid": 2,
+        "name": "created_at",
+        "type": "TEXT",
+        "notnull": 1,
+        "dflt_value": null,
+        "pk": 0
+      }
+    ],
+    "foreignKeys": [],
+    "indexes": [
+      {
+        "name": "sqlite_autoindex_github_owners_1",
+        "unique": 1,
+        "origin": "pk",
+        "partial": 0,
+        "columns": [
+          {
+            "seqno": 0,
+            "cid": 0,
+            "name": "login",
+            "desc": 0,
+            "coll": "NOCASE",
+            "key": 1
+          },
+          {
+            "seqno": 1,
+            "cid": -1,
+            "name": null,
+            "desc": 0,
+            "coll": "BINARY",
+            "key": 0
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "import_batch_items",
+    "sql": "CREATE TABLE import_batch_items ( id INTEGER PRIMARY KEY AUTOINCREMENT, batch_id TEXT NOT NULL REFERENCES import_batches(id), repository_id INTEGER NOT NULL REFERENCES repositories(id), release_id INTEGER NOT NULL, job_id TEXT REFERENCES import_jobs(id), outcome TEXT NOT NULL, error TEXT, UNIQUE(batch_id, repository_id, release_id) )",
+    "columns": [
+      {
+        "cid": 0,
+        "name": "id",
+        "type": "INTEGER",
+        "notnull": 0,
+        "dflt_value": null,
+        "pk": 1
+      },
+      {
+        "cid": 1,
+        "name": "batch_id",
+        "type": "TEXT",
+        "notnull": 1,
+        "dflt_value": null,
+        "pk": 0
+      },
+      {
+        "cid": 2,
+        "name": "repository_id",
+        "type": "INTEGER",
+        "notnull": 1,
+        "dflt_value": null,
+        "pk": 0
+      },
+      {
+        "cid": 3,
+        "name": "release_id",
+        "type": "INTEGER",
+        "notnull": 1,
+        "dflt_value": null,
+        "pk": 0
+      },
+      {
+        "cid": 4,
+        "name": "job_id",
+        "type": "TEXT",
+        "notnull": 0,
+        "dflt_value": null,
+        "pk": 0
+      },
+      {
+        "cid": 5,
+        "name": "outcome",
+        "type": "TEXT",
+        "notnull": 1,
+        "dflt_value": null,
+        "pk": 0
+      },
+      {
+        "cid": 6,
+        "name": "error",
+        "type": "TEXT",
+        "notnull": 0,
+        "dflt_value": null,
+        "pk": 0
+      }
+    ],
+    "foreignKeys": [
+      {
+        "id": 0,
+        "seq": 0,
+        "table": "import_jobs",
+        "from": "job_id",
+        "to": "id",
+        "on_update": "NO ACTION",
+        "on_delete": "NO ACTION",
+        "match": "NONE"
+      },
+      {
+        "id": 1,
+        "seq": 0,
+        "table": "repositories",
+        "from": "repository_id",
+        "to": "id",
+        "on_update": "NO ACTION",
+        "on_delete": "NO ACTION",
+        "match": "NONE"
+      },
+      {
+        "id": 2,
+        "seq": 0,
+        "table": "import_batches",
+        "from": "batch_id",
+        "to": "id",
+        "on_update": "NO ACTION",
+        "on_delete": "NO ACTION",
+        "match": "NONE"
+      }
+    ],
+    "indexes": [
+      {
+        "name": "import_batch_items_batch",
+        "unique": 0,
+        "origin": "c",
+        "partial": 0,
+        "columns": [
+          {
+            "seqno": 0,
+            "cid": 1,
+            "name": "batch_id",
+            "desc": 0,
+            "coll": "BINARY",
+            "key": 1
+          },
+          {
+            "seqno": 1,
+            "cid": 0,
+            "name": "id",
+            "desc": 0,
+            "coll": "BINARY",
+            "key": 1
+          },
+          {
+            "seqno": 2,
+            "cid": -1,
+            "name": null,
+            "desc": 0,
+            "coll": "BINARY",
+            "key": 0
+          }
+        ]
+      },
+      {
+        "name": "sqlite_autoindex_import_batch_items_1",
+        "unique": 1,
+        "origin": "u",
+        "partial": 0,
+        "columns": [
+          {
+            "seqno": 0,
+            "cid": 1,
+            "name": "batch_id",
+            "desc": 0,
+            "coll": "BINARY",
+            "key": 1
+          },
+          {
+            "seqno": 1,
+            "cid": 2,
+            "name": "repository_id",
+            "desc": 0,
+            "coll": "BINARY",
+            "key": 1
+          },
+          {
+            "seqno": 2,
+            "cid": 3,
+            "name": "release_id",
+            "desc": 0,
+            "coll": "BINARY",
+            "key": 1
+          },
+          {
+            "seqno": 3,
+            "cid": -1,
+            "name": null,
+            "desc": 0,
+            "coll": "BINARY",
+            "key": 0
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "import_batches",
+    "sql": "CREATE TABLE import_batches (id TEXT PRIMARY KEY, created_at TEXT NOT NULL)",
+    "columns": [
+      {
+        "cid": 0,
+        "name": "id",
+        "type": "TEXT",
+        "notnull": 0,
+        "dflt_value": null,
+        "pk": 1
+      },
+      {
+        "cid": 1,
+        "name": "created_at",
+        "type": "TEXT",
+        "notnull": 1,
+        "dflt_value": null,
+        "pk": 0
+      }
+    ],
+    "foreignKeys": [],
+    "indexes": [
+      {
+        "name": "sqlite_autoindex_import_batches_1",
+        "unique": 1,
+        "origin": "pk",
+        "partial": 0,
+        "columns": [
+          {
+            "seqno": 0,
+            "cid": 0,
+            "name": "id",
+            "desc": 0,
+            "coll": "BINARY",
+            "key": 1
+          },
+          {
+            "seqno": 1,
+            "cid": -1,
+            "name": null,
+            "desc": 0,
+            "coll": "BINARY",
+            "key": 0
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "import_jobs",
+    "sql": "CREATE TABLE import_jobs (id TEXT PRIMARY KEY, repository_id INTEGER NOT NULL REFERENCES repositories(id), release_id INTEGER NOT NULL, status TEXT NOT NULL, phase TEXT NOT NULL, error TEXT, game_id TEXT, version TEXT, created_at TEXT NOT NULL, updated_at TEXT NOT NULL)",
+    "columns": [
+      {
+        "cid": 0,
+        "name": "id",
+        "type": "TEXT",
+        "notnull": 0,
+        "dflt_value": null,
+        "pk": 1
+      },
+      {
+        "cid": 1,
+        "name": "repository_id",
+        "type": "INTEGER",
+        "notnull": 1,
+        "dflt_value": null,
+        "pk": 0
+      },
+      {
+        "cid": 2,
+        "name": "release_id",
+        "type": "INTEGER",
+        "notnull": 1,
+        "dflt_value": null,
+        "pk": 0
+      },
+      {
+        "cid": 3,
+        "name": "status",
+        "type": "TEXT",
+        "notnull": 1,
+        "dflt_value": null,
+        "pk": 0
+      },
+      {
+        "cid": 4,
+        "name": "phase",
+        "type": "TEXT",
+        "notnull": 1,
+        "dflt_value": null,
+        "pk": 0
+      },
+      {
+        "cid": 5,
+        "name": "error",
+        "type": "TEXT",
+        "notnull": 0,
+        "dflt_value": null,
+        "pk": 0
+      },
+      {
+        "cid": 6,
+        "name": "game_id",
+        "type": "TEXT",
+        "notnull": 0,
+        "dflt_value": null,
+        "pk": 0
+      },
+      {
+        "cid": 7,
+        "name": "version",
+        "type": "TEXT",
+        "notnull": 0,
+        "dflt_value": null,
+        "pk": 0
+      },
+      {
+        "cid": 8,
+        "name": "created_at",
+        "type": "TEXT",
+        "notnull": 1,
+        "dflt_value": null,
+        "pk": 0
+      },
+      {
+        "cid": 9,
+        "name": "updated_at",
+        "type": "TEXT",
+        "notnull": 1,
+        "dflt_value": null,
+        "pk": 0
+      }
+    ],
+    "foreignKeys": [
+      {
+        "id": 0,
+        "seq": 0,
+        "table": "repositories",
+        "from": "repository_id",
+        "to": "id",
+        "on_update": "NO ACTION",
+        "on_delete": "NO ACTION",
+        "match": "NONE"
+      }
+    ],
+    "indexes": [
+      {
+        "name": "sqlite_autoindex_import_jobs_1",
+        "unique": 1,
+        "origin": "pk",
+        "partial": 0,
+        "columns": [
+          {
+            "seqno": 0,
+            "cid": 0,
+            "name": "id",
+            "desc": 0,
+            "coll": "BINARY",
+            "key": 1
+          },
+          {
+            "seqno": 1,
+            "cid": -1,
+            "name": null,
+            "desc": 0,
+            "coll": "BINARY",
+            "key": 0
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "operational_state",
+    "sql": "CREATE TABLE operational_state (key TEXT PRIMARY KEY, value TEXT NOT NULL)",
+    "columns": [
+      {
+        "cid": 0,
+        "name": "key",
+        "type": "TEXT",
+        "notnull": 0,
+        "dflt_value": null,
+        "pk": 1
+      },
+      {
+        "cid": 1,
+        "name": "value",
+        "type": "TEXT",
+        "notnull": 1,
+        "dflt_value": null,
+        "pk": 0
+      }
+    ],
+    "foreignKeys": [],
+    "indexes": [
+      {
+        "name": "sqlite_autoindex_operational_state_1",
+        "unique": 1,
+        "origin": "pk",
+        "partial": 0,
+        "columns": [
+          {
+            "seqno": 0,
+            "cid": 0,
+            "name": "key",
+            "desc": 0,
+            "coll": "BINARY",
+            "key": 1
+          },
+          {
+            "seqno": 1,
+            "cid": -1,
+            "name": null,
+            "desc": 0,
+            "coll": "BINARY",
+            "key": 0
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "plays",
+    "sql": "CREATE TABLE plays ( id TEXT PRIMARY KEY, user_id INTEGER NOT NULL REFERENCES users(id), session_hash TEXT NOT NULL, request_id TEXT NOT NULL, game_id TEXT NOT NULL REFERENCES games(id), version TEXT NOT NULL, game_name TEXT NOT NULL, board_id TEXT, started_at INTEGER NOT NULL, last_heartbeat_at INTEGER NOT NULL, active_ms INTEGER NOT NULL DEFAULT 0, heartbeat_active INTEGER NOT NULL DEFAULT 0, UNIQUE(session_hash, request_id) )",
+    "columns": [
+      {
+        "cid": 0,
+        "name": "id",
+        "type": "TEXT",
+        "notnull": 0,
+        "dflt_value": null,
+        "pk": 1
+      },
+      {
+        "cid": 1,
+        "name": "user_id",
+        "type": "INTEGER",
+        "notnull": 1,
+        "dflt_value": null,
+        "pk": 0
+      },
+      {
+        "cid": 2,
+        "name": "session_hash",
+        "type": "TEXT",
+        "notnull": 1,
+        "dflt_value": null,
+        "pk": 0
+      },
+      {
+        "cid": 3,
+        "name": "request_id",
+        "type": "TEXT",
+        "notnull": 1,
+        "dflt_value": null,
+        "pk": 0
+      },
+      {
+        "cid": 4,
+        "name": "game_id",
+        "type": "TEXT",
+        "notnull": 1,
+        "dflt_value": null,
+        "pk": 0
+      },
+      {
+        "cid": 5,
+        "name": "version",
+        "type": "TEXT",
+        "notnull": 1,
+        "dflt_value": null,
+        "pk": 0
+      },
+      {
+        "cid": 6,
+        "name": "game_name",
+        "type": "TEXT",
+        "notnull": 1,
+        "dflt_value": null,
+        "pk": 0
+      },
+      {
+        "cid": 7,
+        "name": "board_id",
+        "type": "TEXT",
+        "notnull": 0,
+        "dflt_value": null,
+        "pk": 0
+      },
+      {
+        "cid": 8,
+        "name": "started_at",
+        "type": "INTEGER",
+        "notnull": 1,
+        "dflt_value": null,
+        "pk": 0
+      },
+      {
+        "cid": 9,
+        "name": "last_heartbeat_at",
+        "type": "INTEGER",
+        "notnull": 1,
+        "dflt_value": null,
+        "pk": 0
+      },
+      {
+        "cid": 10,
+        "name": "active_ms",
+        "type": "INTEGER",
+        "notnull": 1,
+        "dflt_value": "0",
+        "pk": 0
+      },
+      {
+        "cid": 11,
+        "name": "heartbeat_active",
+        "type": "INTEGER",
+        "notnull": 1,
+        "dflt_value": "0",
+        "pk": 0
+      }
+    ],
+    "foreignKeys": [
+      {
+        "id": 0,
+        "seq": 0,
+        "table": "games",
+        "from": "game_id",
+        "to": "id",
+        "on_update": "NO ACTION",
+        "on_delete": "NO ACTION",
+        "match": "NONE"
+      },
+      {
+        "id": 1,
+        "seq": 0,
+        "table": "users",
+        "from": "user_id",
+        "to": "id",
+        "on_update": "NO ACTION",
+        "on_delete": "NO ACTION",
+        "match": "NONE"
+      }
+    ],
+    "indexes": [
+      {
+        "name": "plays_user_game",
+        "unique": 0,
+        "origin": "c",
+        "partial": 0,
+        "columns": [
+          {
+            "seqno": 0,
+            "cid": 1,
+            "name": "user_id",
+            "desc": 0,
+            "coll": "BINARY",
+            "key": 1
+          },
+          {
+            "seqno": 1,
+            "cid": 4,
+            "name": "game_id",
+            "desc": 0,
+            "coll": "BINARY",
+            "key": 1
+          },
+          {
+            "seqno": 2,
+            "cid": 8,
+            "name": "started_at",
+            "desc": 0,
+            "coll": "BINARY",
+            "key": 1
+          },
+          {
+            "seqno": 3,
+            "cid": -1,
+            "name": null,
+            "desc": 0,
+            "coll": "BINARY",
+            "key": 0
+          }
+        ]
+      },
+      {
+        "name": "sqlite_autoindex_plays_1",
+        "unique": 1,
+        "origin": "pk",
+        "partial": 0,
+        "columns": [
+          {
+            "seqno": 0,
+            "cid": 0,
+            "name": "id",
+            "desc": 0,
+            "coll": "BINARY",
+            "key": 1
+          },
+          {
+            "seqno": 1,
+            "cid": -1,
+            "name": null,
+            "desc": 0,
+            "coll": "BINARY",
+            "key": 0
+          }
+        ]
+      },
+      {
+        "name": "sqlite_autoindex_plays_2",
+        "unique": 1,
+        "origin": "u",
+        "partial": 0,
+        "columns": [
+          {
+            "seqno": 0,
+            "cid": 2,
+            "name": "session_hash",
+            "desc": 0,
+            "coll": "BINARY",
+            "key": 1
+          },
+          {
+            "seqno": 1,
+            "cid": 3,
+            "name": "request_id",
+            "desc": 0,
+            "coll": "BINARY",
+            "key": 1
+          },
+          {
+            "seqno": 2,
+            "cid": -1,
+            "name": null,
+            "desc": 0,
+            "coll": "BINARY",
+            "key": 0
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "previews",
+    "sql": "CREATE TABLE previews (token_hash TEXT PRIMARY KEY, game_id TEXT NOT NULL, version TEXT NOT NULL, expires_at INTEGER NOT NULL)",
+    "columns": [
+      {
+        "cid": 0,
+        "name": "token_hash",
+        "type": "TEXT",
+        "notnull": 0,
+        "dflt_value": null,
+        "pk": 1
+      },
+      {
+        "cid": 1,
+        "name": "game_id",
+        "type": "TEXT",
+        "notnull": 1,
+        "dflt_value": null,
+        "pk": 0
+      },
+      {
+        "cid": 2,
+        "name": "version",
+        "type": "TEXT",
+        "notnull": 1,
+        "dflt_value": null,
+        "pk": 0
+      },
+      {
+        "cid": 3,
+        "name": "expires_at",
+        "type": "INTEGER",
+        "notnull": 1,
+        "dflt_value": null,
+        "pk": 0
+      }
+    ],
+    "foreignKeys": [],
+    "indexes": [
+      {
+        "name": "previews_expiry",
+        "unique": 0,
+        "origin": "c",
+        "partial": 0,
+        "columns": [
+          {
+            "seqno": 0,
+            "cid": 3,
+            "name": "expires_at",
+            "desc": 0,
+            "coll": "BINARY",
+            "key": 1
+          },
+          {
+            "seqno": 1,
+            "cid": -1,
+            "name": null,
+            "desc": 0,
+            "coll": "BINARY",
+            "key": 0
+          }
+        ]
+      },
+      {
+        "name": "sqlite_autoindex_previews_1",
+        "unique": 1,
+        "origin": "pk",
+        "partial": 0,
+        "columns": [
+          {
+            "seqno": 0,
+            "cid": 0,
+            "name": "token_hash",
+            "desc": 0,
+            "coll": "BINARY",
+            "key": 1
+          },
+          {
+            "seqno": 1,
+            "cid": -1,
+            "name": null,
+            "desc": 0,
+            "coll": "BINARY",
+            "key": 0
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "repositories",
+    "sql": "CREATE TABLE repositories (id INTEGER PRIMARY KEY AUTOINCREMENT, full_name TEXT NOT NULL UNIQUE, created_at TEXT NOT NULL, archived INTEGER NOT NULL DEFAULT 0, checked_at TEXT, check_error TEXT, cached_releases TEXT NOT NULL DEFAULT '[]')",
+    "columns": [
+      {
+        "cid": 0,
+        "name": "id",
+        "type": "INTEGER",
+        "notnull": 0,
+        "dflt_value": null,
+        "pk": 1
+      },
+      {
+        "cid": 1,
+        "name": "full_name",
+        "type": "TEXT",
+        "notnull": 1,
+        "dflt_value": null,
+        "pk": 0
+      },
+      {
+        "cid": 2,
+        "name": "created_at",
+        "type": "TEXT",
+        "notnull": 1,
+        "dflt_value": null,
+        "pk": 0
+      },
+      {
+        "cid": 3,
+        "name": "archived",
+        "type": "INTEGER",
+        "notnull": 1,
+        "dflt_value": "0",
+        "pk": 0
+      },
+      {
+        "cid": 4,
+        "name": "checked_at",
+        "type": "TEXT",
+        "notnull": 0,
+        "dflt_value": null,
+        "pk": 0
+      },
+      {
+        "cid": 5,
+        "name": "check_error",
+        "type": "TEXT",
+        "notnull": 0,
+        "dflt_value": null,
+        "pk": 0
+      },
+      {
+        "cid": 6,
+        "name": "cached_releases",
+        "type": "TEXT",
+        "notnull": 1,
+        "dflt_value": "'[]'",
+        "pk": 0
+      }
+    ],
+    "foreignKeys": [],
+    "indexes": [
+      {
+        "name": "sqlite_autoindex_repositories_1",
+        "unique": 1,
+        "origin": "u",
+        "partial": 0,
+        "columns": [
+          {
+            "seqno": 0,
+            "cid": 1,
+            "name": "full_name",
+            "desc": 0,
+            "coll": "BINARY",
+            "key": 1
+          },
+          {
+            "seqno": 1,
+            "cid": -1,
+            "name": null,
+            "desc": 0,
+            "coll": "BINARY",
+            "key": 0
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "runs",
+    "sql": "CREATE TABLE runs ( id TEXT PRIMARY KEY, play_id TEXT NOT NULL REFERENCES plays(id), request_id TEXT NOT NULL, started_at INTEGER NOT NULL, score INTEGER, finished_at INTEGER, UNIQUE(play_id, request_id) )",
+    "columns": [
+      {
+        "cid": 0,
+        "name": "id",
+        "type": "TEXT",
+        "notnull": 0,
+        "dflt_value": null,
+        "pk": 1
+      },
+      {
+        "cid": 1,
+        "name": "play_id",
+        "type": "TEXT",
+        "notnull": 1,
+        "dflt_value": null,
+        "pk": 0
+      },
+      {
+        "cid": 2,
+        "name": "request_id",
+        "type": "TEXT",
+        "notnull": 1,
+        "dflt_value": null,
+        "pk": 0
+      },
+      {
+        "cid": 3,
+        "name": "started_at",
+        "type": "INTEGER",
+        "notnull": 1,
+        "dflt_value": null,
+        "pk": 0
+      },
+      {
+        "cid": 4,
+        "name": "score",
+        "type": "INTEGER",
+        "notnull": 0,
+        "dflt_value": null,
+        "pk": 0
+      },
+      {
+        "cid": 5,
+        "name": "finished_at",
+        "type": "INTEGER",
+        "notnull": 0,
+        "dflt_value": null,
+        "pk": 0
+      }
+    ],
+    "foreignKeys": [
+      {
+        "id": 0,
+        "seq": 0,
+        "table": "plays",
+        "from": "play_id",
+        "to": "id",
+        "on_update": "NO ACTION",
+        "on_delete": "NO ACTION",
+        "match": "NONE"
+      }
+    ],
+    "indexes": [
+      {
+        "name": "runs_play_finished",
+        "unique": 0,
+        "origin": "c",
+        "partial": 0,
+        "columns": [
+          {
+            "seqno": 0,
+            "cid": 1,
+            "name": "play_id",
+            "desc": 0,
+            "coll": "BINARY",
+            "key": 1
+          },
+          {
+            "seqno": 1,
+            "cid": 5,
+            "name": "finished_at",
+            "desc": 0,
+            "coll": "BINARY",
+            "key": 1
+          },
+          {
+            "seqno": 2,
+            "cid": -1,
+            "name": null,
+            "desc": 0,
+            "coll": "BINARY",
+            "key": 0
+          }
+        ]
+      },
+      {
+        "name": "sqlite_autoindex_runs_1",
+        "unique": 1,
+        "origin": "pk",
+        "partial": 0,
+        "columns": [
+          {
+            "seqno": 0,
+            "cid": 0,
+            "name": "id",
+            "desc": 0,
+            "coll": "BINARY",
+            "key": 1
+          },
+          {
+            "seqno": 1,
+            "cid": -1,
+            "name": null,
+            "desc": 0,
+            "coll": "BINARY",
+            "key": 0
+          }
+        ]
+      },
+      {
+        "name": "sqlite_autoindex_runs_2",
+        "unique": 1,
+        "origin": "u",
+        "partial": 0,
+        "columns": [
+          {
+            "seqno": 0,
+            "cid": 1,
+            "name": "play_id",
+            "desc": 0,
+            "coll": "BINARY",
+            "key": 1
+          },
+          {
+            "seqno": 1,
+            "cid": 2,
+            "name": "request_id",
+            "desc": 0,
+            "coll": "BINARY",
+            "key": 1
+          },
+          {
+            "seqno": 2,
+            "cid": -1,
+            "name": null,
+            "desc": 0,
+            "coll": "BINARY",
+            "key": 0
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "score_submission_metrics",
+    "sql": "CREATE TABLE score_submission_metrics ( day TEXT NOT NULL, game_id TEXT NOT NULL REFERENCES games(id), outcome TEXT NOT NULL CHECK(outcome IN ('success','rejected','server_error')), count INTEGER NOT NULL CHECK(count >= 0), PRIMARY KEY(day,game_id,outcome) )",
+    "columns": [
+      {
+        "cid": 0,
+        "name": "day",
+        "type": "TEXT",
+        "notnull": 1,
+        "dflt_value": null,
+        "pk": 1
+      },
+      {
+        "cid": 1,
+        "name": "game_id",
+        "type": "TEXT",
+        "notnull": 1,
+        "dflt_value": null,
+        "pk": 2
+      },
+      {
+        "cid": 2,
+        "name": "outcome",
+        "type": "TEXT",
+        "notnull": 1,
+        "dflt_value": null,
+        "pk": 3
+      },
+      {
+        "cid": 3,
+        "name": "count",
+        "type": "INTEGER",
+        "notnull": 1,
+        "dflt_value": null,
+        "pk": 0
+      }
+    ],
+    "foreignKeys": [
+      {
+        "id": 0,
+        "seq": 0,
+        "table": "games",
+        "from": "game_id",
+        "to": "id",
+        "on_update": "NO ACTION",
+        "on_delete": "NO ACTION",
+        "match": "NONE"
+      }
+    ],
+    "indexes": [
+      {
+        "name": "sqlite_autoindex_score_submission_metrics_1",
+        "unique": 1,
+        "origin": "pk",
+        "partial": 0,
+        "columns": [
+          {
+            "seqno": 0,
+            "cid": 0,
+            "name": "day",
+            "desc": 0,
+            "coll": "BINARY",
+            "key": 1
+          },
+          {
+            "seqno": 1,
+            "cid": 1,
+            "name": "game_id",
+            "desc": 0,
+            "coll": "BINARY",
+            "key": 1
+          },
+          {
+            "seqno": 2,
+            "cid": 2,
+            "name": "outcome",
+            "desc": 0,
+            "coll": "BINARY",
+            "key": 1
+          },
+          {
+            "seqno": 3,
+            "cid": -1,
+            "name": null,
+            "desc": 0,
+            "coll": "BINARY",
+            "key": 0
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "sessions",
+    "sql": "CREATE TABLE \"sessions\" (token_hash TEXT PRIMARY KEY, user_id INTEGER NOT NULL REFERENCES users(id), csrf TEXT NOT NULL, expires_at INTEGER NOT NULL)",
+    "columns": [
+      {
+        "cid": 0,
+        "name": "token_hash",
+        "type": "TEXT",
+        "notnull": 0,
+        "dflt_value": null,
+        "pk": 1
+      },
+      {
+        "cid": 1,
+        "name": "user_id",
+        "type": "INTEGER",
+        "notnull": 1,
+        "dflt_value": null,
+        "pk": 0
+      },
+      {
+        "cid": 2,
+        "name": "csrf",
+        "type": "TEXT",
+        "notnull": 1,
+        "dflt_value": null,
+        "pk": 0
+      },
+      {
+        "cid": 3,
+        "name": "expires_at",
+        "type": "INTEGER",
+        "notnull": 1,
+        "dflt_value": null,
+        "pk": 0
+      }
+    ],
+    "foreignKeys": [
+      {
+        "id": 0,
+        "seq": 0,
+        "table": "users",
+        "from": "user_id",
+        "to": "id",
+        "on_update": "NO ACTION",
+        "on_delete": "NO ACTION",
+        "match": "NONE"
+      }
+    ],
+    "indexes": [
+      {
+        "name": "sessions_expiry",
+        "unique": 0,
+        "origin": "c",
+        "partial": 0,
+        "columns": [
+          {
+            "seqno": 0,
+            "cid": 3,
+            "name": "expires_at",
+            "desc": 0,
+            "coll": "BINARY",
+            "key": 1
+          },
+          {
+            "seqno": 1,
+            "cid": -1,
+            "name": null,
+            "desc": 0,
+            "coll": "BINARY",
+            "key": 0
+          }
+        ]
+      },
+      {
+        "name": "sqlite_autoindex_sessions_1",
+        "unique": 1,
+        "origin": "pk",
+        "partial": 0,
+        "columns": [
+          {
+            "seqno": 0,
+            "cid": 0,
+            "name": "token_hash",
+            "desc": 0,
+            "coll": "BINARY",
+            "key": 1
+          },
+          {
+            "seqno": 1,
+            "cid": -1,
+            "name": null,
+            "desc": 0,
+            "coll": "BINARY",
+            "key": 0
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "users",
+    "sql": "CREATE TABLE \"users\" (id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT NOT NULL COLLATE NOCASE UNIQUE, password TEXT NOT NULL, role TEXT NOT NULL DEFAULT 'player' CHECK(role IN ('player','game_manager','analyst','admin')), created_at TEXT NOT NULL DEFAULT '')",
+    "columns": [
+      {
+        "cid": 0,
+        "name": "id",
+        "type": "INTEGER",
+        "notnull": 0,
+        "dflt_value": null,
+        "pk": 1
+      },
+      {
+        "cid": 1,
+        "name": "username",
+        "type": "TEXT",
+        "notnull": 1,
+        "dflt_value": null,
+        "pk": 0
+      },
+      {
+        "cid": 2,
+        "name": "password",
+        "type": "TEXT",
+        "notnull": 1,
+        "dflt_value": null,
+        "pk": 0
+      },
+      {
+        "cid": 3,
+        "name": "role",
+        "type": "TEXT",
+        "notnull": 1,
+        "dflt_value": "'player'",
+        "pk": 0
+      },
+      {
+        "cid": 4,
+        "name": "created_at",
+        "type": "TEXT",
+        "notnull": 1,
+        "dflt_value": "''",
+        "pk": 0
+      }
+    ],
+    "foreignKeys": [],
+    "indexes": [
+      {
+        "name": "sqlite_autoindex_users_1",
+        "unique": 1,
+        "origin": "u",
+        "partial": 0,
+        "columns": [
+          {
+            "seqno": 0,
+            "cid": 1,
+            "name": "username",
+            "desc": 0,
+            "coll": "NOCASE",
+            "key": 1
+          },
+          {
+            "seqno": 1,
+            "cid": -1,
+            "name": null,
+            "desc": 0,
+            "coll": "BINARY",
+            "key": 0
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "versions",
+    "sql": "CREATE TABLE versions (id INTEGER PRIMARY KEY AUTOINCREMENT, game_id TEXT NOT NULL REFERENCES games(id), version TEXT NOT NULL, manifest TEXT NOT NULL, sha256 TEXT NOT NULL, release_id INTEGER, asset_id INTEGER, release_tag TEXT, imported_at TEXT NOT NULL, published_at TEXT, reviewed_by TEXT, reviewed_at TEXT, UNIQUE(game_id, version))",
+    "columns": [
+      {
+        "cid": 0,
+        "name": "id",
+        "type": "INTEGER",
+        "notnull": 0,
+        "dflt_value": null,
+        "pk": 1
+      },
+      {
+        "cid": 1,
+        "name": "game_id",
+        "type": "TEXT",
+        "notnull": 1,
+        "dflt_value": null,
+        "pk": 0
+      },
+      {
+        "cid": 2,
+        "name": "version",
+        "type": "TEXT",
+        "notnull": 1,
+        "dflt_value": null,
+        "pk": 0
+      },
+      {
+        "cid": 3,
+        "name": "manifest",
+        "type": "TEXT",
+        "notnull": 1,
+        "dflt_value": null,
+        "pk": 0
+      },
+      {
+        "cid": 4,
+        "name": "sha256",
+        "type": "TEXT",
+        "notnull": 1,
+        "dflt_value": null,
+        "pk": 0
+      },
+      {
+        "cid": 5,
+        "name": "release_id",
+        "type": "INTEGER",
+        "notnull": 0,
+        "dflt_value": null,
+        "pk": 0
+      },
+      {
+        "cid": 6,
+        "name": "asset_id",
+        "type": "INTEGER",
+        "notnull": 0,
+        "dflt_value": null,
+        "pk": 0
+      },
+      {
+        "cid": 7,
+        "name": "release_tag",
+        "type": "TEXT",
+        "notnull": 0,
+        "dflt_value": null,
+        "pk": 0
+      },
+      {
+        "cid": 8,
+        "name": "imported_at",
+        "type": "TEXT",
+        "notnull": 1,
+        "dflt_value": null,
+        "pk": 0
+      },
+      {
+        "cid": 9,
+        "name": "published_at",
+        "type": "TEXT",
+        "notnull": 0,
+        "dflt_value": null,
+        "pk": 0
+      },
+      {
+        "cid": 10,
+        "name": "reviewed_by",
+        "type": "TEXT",
+        "notnull": 0,
+        "dflt_value": null,
+        "pk": 0
+      },
+      {
+        "cid": 11,
+        "name": "reviewed_at",
+        "type": "TEXT",
+        "notnull": 0,
+        "dflt_value": null,
+        "pk": 0
+      }
+    ],
+    "foreignKeys": [
+      {
+        "id": 0,
+        "seq": 0,
+        "table": "games",
+        "from": "game_id",
+        "to": "id",
+        "on_update": "NO ACTION",
+        "on_delete": "NO ACTION",
+        "match": "NONE"
+      }
+    ],
+    "indexes": [
+      {
+        "name": "sqlite_autoindex_versions_1",
+        "unique": 1,
+        "origin": "u",
+        "partial": 0,
+        "columns": [
+          {
+            "seqno": 0,
+            "cid": 1,
+            "name": "game_id",
+            "desc": 0,
+            "coll": "BINARY",
+            "key": 1
+          },
+          {
+            "seqno": 1,
+            "cid": 2,
+            "name": "version",
+            "desc": 0,
+            "coll": "BINARY",
+            "key": 1
+          },
+          {
+            "seqno": 2,
+            "cid": -1,
+            "name": null,
+            "desc": 0,
+            "coll": "BINARY",
+            "key": 0
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "visitor_events",
+    "sql": "CREATE TABLE visitor_events ( id INTEGER PRIMARY KEY AUTOINCREMENT, visitor_id TEXT NOT NULL, request_id TEXT NOT NULL, occurred_at INTEGER NOT NULL, kind TEXT NOT NULL CHECK(kind IN ('page_view','game_open')), path TEXT NOT NULL, ip TEXT NOT NULL, country TEXT, user_id INTEGER REFERENCES users(id), game_id TEXT REFERENCES games(id), game_name TEXT, game_version TEXT, referrer_host TEXT, user_agent TEXT NOT NULL, UNIQUE(visitor_id, request_id) )",
+    "columns": [
+      {
+        "cid": 0,
+        "name": "id",
+        "type": "INTEGER",
+        "notnull": 0,
+        "dflt_value": null,
+        "pk": 1
+      },
+      {
+        "cid": 1,
+        "name": "visitor_id",
+        "type": "TEXT",
+        "notnull": 1,
+        "dflt_value": null,
+        "pk": 0
+      },
+      {
+        "cid": 2,
+        "name": "request_id",
+        "type": "TEXT",
+        "notnull": 1,
+        "dflt_value": null,
+        "pk": 0
+      },
+      {
+        "cid": 3,
+        "name": "occurred_at",
+        "type": "INTEGER",
+        "notnull": 1,
+        "dflt_value": null,
+        "pk": 0
+      },
+      {
+        "cid": 4,
+        "name": "kind",
+        "type": "TEXT",
+        "notnull": 1,
+        "dflt_value": null,
+        "pk": 0
+      },
+      {
+        "cid": 5,
+        "name": "path",
+        "type": "TEXT",
+        "notnull": 1,
+        "dflt_value": null,
+        "pk": 0
+      },
+      {
+        "cid": 6,
+        "name": "ip",
+        "type": "TEXT",
+        "notnull": 1,
+        "dflt_value": null,
+        "pk": 0
+      },
+      {
+        "cid": 7,
+        "name": "country",
+        "type": "TEXT",
+        "notnull": 0,
+        "dflt_value": null,
+        "pk": 0
+      },
+      {
+        "cid": 8,
+        "name": "user_id",
+        "type": "INTEGER",
+        "notnull": 0,
+        "dflt_value": null,
+        "pk": 0
+      },
+      {
+        "cid": 9,
+        "name": "game_id",
+        "type": "TEXT",
+        "notnull": 0,
+        "dflt_value": null,
+        "pk": 0
+      },
+      {
+        "cid": 10,
+        "name": "game_name",
+        "type": "TEXT",
+        "notnull": 0,
+        "dflt_value": null,
+        "pk": 0
+      },
+      {
+        "cid": 11,
+        "name": "game_version",
+        "type": "TEXT",
+        "notnull": 0,
+        "dflt_value": null,
+        "pk": 0
+      },
+      {
+        "cid": 12,
+        "name": "referrer_host",
+        "type": "TEXT",
+        "notnull": 0,
+        "dflt_value": null,
+        "pk": 0
+      },
+      {
+        "cid": 13,
+        "name": "user_agent",
+        "type": "TEXT",
+        "notnull": 1,
+        "dflt_value": null,
+        "pk": 0
+      }
+    ],
+    "foreignKeys": [
+      {
+        "id": 0,
+        "seq": 0,
+        "table": "games",
+        "from": "game_id",
+        "to": "id",
+        "on_update": "NO ACTION",
+        "on_delete": "NO ACTION",
+        "match": "NONE"
+      },
+      {
+        "id": 1,
+        "seq": 0,
+        "table": "users",
+        "from": "user_id",
+        "to": "id",
+        "on_update": "NO ACTION",
+        "on_delete": "NO ACTION",
+        "match": "NONE"
+      }
+    ],
+    "indexes": [
+      {
+        "name": "sqlite_autoindex_visitor_events_1",
+        "unique": 1,
+        "origin": "u",
+        "partial": 0,
+        "columns": [
+          {
+            "seqno": 0,
+            "cid": 1,
+            "name": "visitor_id",
+            "desc": 0,
+            "coll": "BINARY",
+            "key": 1
+          },
+          {
+            "seqno": 1,
+            "cid": 2,
+            "name": "request_id",
+            "desc": 0,
+            "coll": "BINARY",
+            "key": 1
+          },
+          {
+            "seqno": 2,
+            "cid": -1,
+            "name": null,
+            "desc": 0,
+            "coll": "BINARY",
+            "key": 0
+          }
+        ]
+      },
+      {
+        "name": "visitor_events_game",
+        "unique": 0,
+        "origin": "c",
+        "partial": 0,
+        "columns": [
+          {
+            "seqno": 0,
+            "cid": 9,
+            "name": "game_id",
+            "desc": 0,
+            "coll": "BINARY",
+            "key": 1
+          },
+          {
+            "seqno": 1,
+            "cid": 3,
+            "name": "occurred_at",
+            "desc": 0,
+            "coll": "BINARY",
+            "key": 1
+          },
+          {
+            "seqno": 2,
+            "cid": -1,
+            "name": null,
+            "desc": 0,
+            "coll": "BINARY",
+            "key": 0
+          }
+        ]
+      },
+      {
+        "name": "visitor_events_time",
+        "unique": 0,
+        "origin": "c",
+        "partial": 0,
+        "columns": [
+          {
+            "seqno": 0,
+            "cid": 3,
+            "name": "occurred_at",
+            "desc": 1,
+            "coll": "BINARY",
+            "key": 1
+          },
+          {
+            "seqno": 1,
+            "cid": 0,
+            "name": "id",
+            "desc": 1,
+            "coll": "BINARY",
+            "key": 1
+          },
+          {
+            "seqno": 2,
+            "cid": -1,
+            "name": null,
+            "desc": 0,
+            "coll": "BINARY",
+            "key": 0
+          }
+        ]
+      },
+      {
+        "name": "visitor_events_visitor",
+        "unique": 0,
+        "origin": "c",
+        "partial": 0,
+        "columns": [
+          {
+            "seqno": 0,
+            "cid": 1,
+            "name": "visitor_id",
+            "desc": 0,
+            "coll": "BINARY",
+            "key": 1
+          },
+          {
+            "seqno": 1,
+            "cid": 3,
+            "name": "occurred_at",
+            "desc": 0,
+            "coll": "BINARY",
+            "key": 1
+          },
+          {
+            "seqno": 2,
+            "cid": -1,
+            "name": null,
+            "desc": 0,
+            "coll": "BINARY",
+            "key": 0
+          }
+        ]
+      }
+    ]
+  }
+]

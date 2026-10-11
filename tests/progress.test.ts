@@ -63,7 +63,7 @@ test('private career progress and the next leaderboard target', async (t) => {
   async function install(version: string, boardId: string, order: 'asc' | 'desc') {
     const base = JSON.parse(await fs.readFile('examples/starter/game.json', 'utf8'));
     const game = manifestSchema.parse({ ...base, version, leaderboard: { id: boardId, order, unit: '分', minScore: 0, maxScore: 10000 } });
-    const stage = path.join(root, `stage-${version}`);
+    const stage = path.join(config.dataDir, 'staging', `stage-${version}`);
     await fs.cp('examples/starter', stage, { recursive: true });
     await fs.writeFile(path.join(stage, 'game.json'), JSON.stringify(game));
     await installVersion(store, config, stage, game, { repositoryId: null, releaseId: null, assetId: null, releaseTag: null, sha256: 'a'.repeat(64) });

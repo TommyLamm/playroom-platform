@@ -4,7 +4,7 @@
 
 ## 平台 API 摘要
 
-所有 JSON API 位於平台來源的 `/api/v1`。錯誤格式是 `{ "error": "說明" }`；遊戲來源只提供靜態遊戲資源。
+所有 JSON API 位於平台來源的 `/api/v1`。錯誤格式是 `{ "error": "說明", "code": "STATE_CONFLICT", "details"?: {...} }`，保留 HTTP status 與原文字；操作、重試及機器碼見[共用操作契約](command-contracts.md)。遊戲來源只提供靜態遊戲資源。
 
 後台角色分為 `admin`（平台管理員）、`game_manager`（遊戲管理者）、`analyst`（數據分析員）。普通 `player` 不可進入後台，公開註冊只建立玩家。遊戲管理者可管理全部遊戲的來源、匯入、預覽、發布與下架；分析員只讀彙總統計。帳號權限、訪客個人明細、磁碟／備份狀態及平台更新只供平台管理員。角色由平台管理員在帳號權限頁指派，API 每次讀取目前角色；角色變更不改變私人逐局成績僅供本人的限制。遊戲不應取得管理角色或直接呼叫管理 API。
 
@@ -15,8 +15,10 @@
 | `POST /register` | `{username,password}`，建立 `player` 並登入；不接受 `role` |
 | `POST /login` | `{username,password}`，設定 session cookie |
 | `POST /logout` | 登出並撤銷目前 session |
-| `GET /games/:id/save` | 登入本人私人雲端進度，無資料為 null；不接受帳號／使用者 query |
+| `GET /games/:id/save` | 本人私人進度，無資料為 null；可傳 `?version=` 檢查該已公開版本，省略以目前上架版本檢查；拒絕帳號／使用者 query |
 | `POST /games/:id/save` | `{version,requestId,data,revision,formatVersion}`，JSON data ≤64 KiB、32 層；成功 `{saved:true,data,revision,formatVersion,gameVersion,updatedAt}`，過期 revision 為 409，相同請求可重試 |
+| `GET /games/:id/save/snapshots` | 本人 `{revision,snapshots}`；最新 20 份 metadata，包含 id、原 revision、formatVersion、gameVersion、updatedAt、capturedAt、reason，不包含 data |
+| `POST /games/:id/save/restore` | 本人 `{snapshotId,revision,requestId}`；需 Origin／CSRF，revision 為目前值；成功 `{saved:true,...ProgressSave}` 並增加 revision，禁止不相容恢復 |
 | `POST /visits` | 平台頁面用：`{requestId,kind,path,gameId?,version?,referrer?}`，kind 為 page_view／game_open；需要正確 Origin，不要求登入或 CSRF，每 IP 每分鐘最多 120 次；遊戲不得直接呼叫 |
 | `GET /me/settings` | 本人設定 `{careerVisibility,otherSessions}`；otherSessions 只計有效的其他 session，不接受指定其他帳號 |
 | `POST /me/settings` | `{careerVisibility}`，值為 public／limited／private，回傳更新後的本人設定 |
@@ -31,7 +33,13 @@
 | `POST /plays/:playId/heartbeat` | 大廳用：`{active}`；前景具有焦點時 active=true，失焦時送 false，恢復時重新啟動計時 |
 | `POST /plays/:playId/runs` | 大廳用：`{requestId}`，回傳 `{runId}`；同遊玩記錄重試不重複建立局次 |
 | `POST /runs/:runId/finish` | 大廳用：`{score}`，回傳保存結果 |
-| `GET /admin/overview` | 遊戲、版本、repository 與最近 50 筆匯入紀錄 |
+| `GET /admin/summary` | `{games,published,activeSources,pending}`，只含數量摘要 |
+| `GET /admin/tasks` | 最近 50 筆任務 metadata、來源名稱、等待中總數及 revision；不讀取版本或 Manifest |
+| `GET /admin/games` | `page`、`size`、`q`、`status=all/published/unpublished/pending`、`sort=name/recent`；當頁摘要，無完整 Manifest |
+| `GET /admin/games/:id` | 單款摘要，含目前版本、最新匯入、版本／待發布數量及預設待發布 metadata |
+| `GET /admin/games/:id/versions` | 單款版本 metadata 分頁；`page`、`size`、`q`、`status=all/pending/published`、`sort=name/recent/version` |
+| `GET /admin/games/:id/versions/:version` | `{game,version}`；完整 Manifest 只在指定版本的詳情或預覽時載入 |
+| `GET /admin/overview` | 相容路徑，改為摘要數量及最近 50 筆任務；不再提供全遊戲／版本／repository 陣列 |
 | `GET /admin/analytics` | 選填 `days=7`（預設）或 `30`；UTC 區間、活躍玩家／開啟／完成／熱門遊戲及成績提交／每日指標；admin／analyst 可讀，storage／backup 欄位僅對 admin 回傳 |
 | `GET /admin/visitors` | 選填 `days=7`（預設）或 `30`；訪客、瀏覽、遊戲開啟總數、每日趨勢、國家分佈與前 10 款訪客熱門遊戲；admin／analyst 可讀 |
 | `GET /admin/visitors/records` | 選填 `days=7`／`30`、`page`、`country`（ISO 國家碼或 unknown）、`ip`、`gameId`、`kind`、`visitor`（完整雜湊）；每頁 25 筆，包含 IP／國家／帳號／頁面／遊戲／來源／User-Agent；只供管理員 |
@@ -40,7 +48,13 @@
 | `POST /admin/github-owners` | `{login}`，檢查並保存公開帳號／組織 |
 | `POST /admin/github-owners/:login/remove` | `{}`，移除常用帳號，不刪除來源 |
 | `GET /admin/github-owners/:login/repositories` | 選填 `page`（預設 1），每次最多 100 個公開 repositories、`added` 及 `hasMore` |
-| `GET /admin/sources` | 遊戲來源、封存狀態、保存的 Release 檢查結果及已匯入版本 |
+| `GET /admin/source-list` | 當頁來源；`page`、`size`、`q`、`scope=active/archived/all`、`owner`、`status`、`sort=name/recent` |
+| `GET /admin/source-list/:id` | 指定來源及保存的 Release 檢查結果／已匯入 Release ID，不載入遊戲 Manifest |
+| `POST /admin/source-selection` | `{ids}`，最多 100 個來源 ID；重新檢查存在性及管理權限，回傳仍存在的來源 metadata |
+| `GET /admin/source-owners` | 來源開發者名稱選項（僅文字，上限 10,000） |
+| `GET /admin/update-candidates` | 後端共用規則產生候選摘要；`page`、`size`、`q`、`owner`、`scope`、`status=all/pending/各更新狀態`、`sort=name/recent` |
+| `POST /admin/update-candidates/selection` | `{keys,choices?}`，key 為 `repo:<id>`／`game:<id>`，最多 100 項；跨頁選取重新取得目前候選，不信任快取版本狀態 |
+| `GET /admin/sources` | 來源分頁相容路徑；參數同 source-list，回傳 `{sources,total,page,size}`，不再回傳完整来源列表 |
 | `POST /admin/repositories/:id/check` | `{}`，更新 Release 檢查與時間，失敗保留快取並回傳 `checkError`；限流立即回報暫停，由背景到期重試，不讓 HTTP 請求等到額度恢復 |
 | `POST /admin/source-checks` | `{force?}`，預設 true，啟動或沿用所有未封存來源的檢查，回傳 202 與 `check`；後台進入時傳 false，沿用五分鐘內的成功結果 |
 | `GET /admin/source-checks/current` | `check` 含 id／status／total／completed／failed／startedAt／finishedAt／retryAt，無本次檢查時為 null |
@@ -52,9 +66,9 @@
 | `POST /admin/imports` | `{repositoryId,releaseId}`，回傳 202 與 `jobId` |
 | `POST /admin/games/:id/preview` | `{version}`，回傳 `url`、`expiresAt` |
 | `POST /admin/games/:id/review` | `{version,approved}`，保存確認者及時間或撤銷；管理版本回應含 reviewedBy／reviewedAt |
-| `POST /admin/games/:id/publish` | `{version}`，首次發布要求版本已預覽確認，且已有目前版本時必須高於該版本；已公開版本可回退 |
-| `POST /admin/publish-batches` | `{items:[{gameId,version,expectedActiveVersion,expectedPublished}]}`，最多 100 款、遊戲不可重複；逐款回傳 published／skipped／failed 與 error，上架狀態變更或更新版本低於目前版本時拒絕該款，已是目前上架版本則略過 |
-| `POST /admin/games/:id/unpublish` | `{}`，封鎖所有公開版本資源 |
+| `POST /admin/games/:id/publish` | 必填 `{version,expectedActiveVersion,expectedPublished}`，交易內比對狀態；成功 `{ok:true,status:published/skipped}`，首次需確認，未公開版需高於目前版本，已公開歷史版本可回退 |
+| `POST /admin/publish-batches` | `{items:[{gameId,version,expectedActiveVersion,expectedPublished}]}`，最多 100 款、遊戲不可重複；共用發布服務，逐款回傳 published／skipped／failed、error、code、details?；不可降版，已是目標上架版本略過 |
+| `POST /admin/games/:id/unpublish` | 必填 `{expectedActiveVersion,expectedPublished}`；交易內比對；成功 `{ok:true,status:unpublished/skipped}`，封鎖公開版本資源 |
 | `GET /admin/accounts` | 僅 admin；選填 search（帳號文字）、page（預設 1），每頁 20 個帳號，回傳 id／username／role／createdAt，不含密碼或 session |
 | `POST /admin/accounts/:id/role` | 僅 admin；`{role,expectedRole}`，立即變更角色；目前角色與 expectedRole 不符或將最後一位 admin 降級時回傳 409 |
 
@@ -66,7 +80,7 @@
 
 平台管理員與數據分析員可在 `/api/v1/admin/visitors` 查看匿名及登入玩家的彙總訪客統計（UTC 7／30 天），`/api/v1/admin/visitors/records` 的個人活動明細僅平台管理員可讀。訪客 Cookie 由平台簽發並以雜湊識別；記錄保留 90 天，國家由伺服器按 IP 的本機 GeoIP 資料推算，未知或內網不強行指定國家。平台頁面負責送出瀏覽及公開遊戲 iframe 載入事件，無 SDK 遊戲亦能記開啟；遊戲本身不得取得訪客 IP／Cookie、直接呼叫 `/api/v1/visits` 或另行提交平台訪客統計。後台角色活動及預覽不納入，訪客開啟不代表完成一局或保存帳號成績，亦不改變生涯與成績 API 的權限。
 
-營運回應的磁碟總容量／可用空間與資料／遊戲檔案用量最多快取 30 秒，讀取失敗回傳 null，介面顯示「未知」；測量不追蹤符號連結。備份狀態為 `never`、`running`、`success` 或 `failed`，只表示平台備份指令記錄的狀態，不驗證備份目的地仍可用。schema v10 備份保留私人雲端存檔、公開範圍設定、營運指標、訪客記錄、常用 GitHub 帳號、來源檢查、匯入批次與版本預覽確認，支援 schema v1–v10 還原；快照中的進行中狀態會轉為 failed 並提醒還原後重新備份。源資料庫在快照、檔案與雜湊清單全部完成後才記錄 success，避免宣稱尚未完成的備份成功。舊平台版本回退需使用升級前備份。
+營運回應的磁碟總容量／可用空間與資料／遊戲檔案用量最多快取 30 秒，讀取失敗回傳 null，介面顯示「未知」；測量不追蹤符號連結。備份狀態為 `never`、`running`、`success` 或 `failed`，只表示平台備份指令記錄的狀態，不驗證備份目的地仍可用。schema v11 備份保留私人雲端存檔與遷移／恢復快照、公開範圍設定、營運指標、訪客記錄、常用 GitHub 帳號、來源檢查、匯入批次與版本預覽確認，支援 schema v1–v11 還原；快照中的進行中狀態會轉為 failed 並提醒還原後重新備份。源資料庫在快照、檔案與雜湊清單全部完成後才記錄 success，避免宣稱尚未完成的備份成功。舊平台版本回退需使用升級前備份。
 
 雲端進度讀寫要求有效登入；寫入要求平台 Origin 與 CSRF，版本須曾公開且遊戲目前上架。資料依 user_id＋game_id 保存，讀取不提供指定他人的介面，生涯公開設定不公開進度。每帳號每分鐘最多 120 次讀取、60 次保存，跨 session 共用限制。資料量限制按 UTF-8 序列化計算，HTTP 寫入 body 上限 96 KiB；revision 初始 0、每次增加 1，transaction 保護衝突，同一 requestId 只可重試同一內容。schema v10 新增 cloud_saves 並納入備份；舊備份還原時自動升級。
 
@@ -76,8 +90,14 @@
 
 「遊戲與版本」使用搜尋、篩選與分頁表格，每頁預設 20 款（可選 50／100），點選「管理版本」開啟側邊詳情；手機為全螢幕詳情。版本可搜尋且每頁 10 筆，預覽及確認返回後保留所選版本。歷史回退、下架及來源／校驗資訊沿用原有規則。
 
+新列表回傳 `{items,total,page,size}`。`page` 預設 1；`size` 預設 25、允許 1–100，超出上限回傳 400。刪除或篩選後頁碼超過末頁時回到末頁，空結果為第 1 頁。搜尋、狀態與排序在 SQL 中執行，名稱排序不區分大小寫，最後使用唯一 ID 作為穩定排序條件。候選只回傳目前頁所需來源及版本 metadata，每款最多 100 個待發布候選；完整歷史在單款版本分頁讀取，不包含其他頁 Manifest。
+
+列表在進入、條件變更、操作成功或明確刷新時載入；每三秒輪詢只讀小型任務／檢查狀態，進行中任務完成後刷新相關列表。隱藏頁面暫停請求，返回前景補刷新；讀取共用去重、取消與過期回應保護，角色或 session 改變後清除受限頁面資料。已提交匯入仍在伺服器繼續，關閉視窗不取消批次。
+
 「遊戲更新」集中顯示目前版本、最新正式 Release、待發布版本及確認狀態，支援搜尋、篩選與跨頁勾選。伺服器預設每小時檢查未封存來源（`GAME_RELEASE_CHECK_INTERVAL_SECONDS=3600`），進入後台時沿用五分鐘內的成功結果，其餘來源重新檢查；「立即檢查」強制檢查。手動與背景共用最多三個請求，相同來源及整輪檢查合併。限流依 GitHub 回應暫停，到期後連同被限流的來源自動重試，完成後清除錯誤；暫停中的來源不算完成或最終失敗，成功快取保留。Release 請求帶 ETag，GitHub 回傳 304 時沿用清單。這只檢查，不自動匯入或發布。最新候選沿用按發布時間排序的有效正式版，若已匯入或版本不高於目前版本，不自動推薦其他舊版。待發布選單只列出高於目前版本的未發布版本，較新的預發布版本需手動選擇；未發布舊版不列為待更新，歷史回退使用「遊戲與版本」。
 
 日常流程為「勾選更新 → 確認整批 Release → 批量匯入 → 連續預覽確認 → 批量發布」。每批最多 100 款；確認視窗列出版本變更及首次／重新上架。批量發布獨立處理各款、略過已是目標版本的項目，拒絕目前版本或上架狀態已變更的項目，失敗需刷新重新確認，不影響其他款。管理者的來源／匯入／預覽／確認／發布 API 均不可由遊戲直接呼叫。
 
 平台管理員或遊戲管理者可在「管理後台 → 遊戲更新 → 加入來源」保存多位開發者的 GitHub 帳號／組織，探索公開 repositories 並勾選批量加入，或一次貼上多行 URL／owner/repo；來源列表可搜尋、按帳號及狀態篩選，封存不下架或刪除遊戲。從來源列表多選匯入，或由「匯入遊戲」搜尋選取來源，再確認各款 Release 並等待驗證完成。每批最多 100 款，預設最新有效正式版，預發布需手動選擇；已匯入 Release 跳過、相同等待中任務沿用。批次進度可重新開啟，失敗或重啟中斷可批量重試，匯入完成不會自動上架。
+
+02 存檔格式檢查及恢復已提供：SAVE_FORMAT_INCOMPATIBLE、SAVE_REVISION_CONFLICT、REQUEST_ID_REUSED 分別表示格式、revision 與請求識別衝突，原中文字 error／HTTP status 保留。版本詳情新增 saveCompatibility（status、total、affected、formats），只包含格式與筆數；單款／批量發布在交易內拒絕已知不相容存檔。營運 storage 新增 snapshotCount 與 snapshotDataBytes。schema v11 新增快照及最近恢復識別，保留最新 20 份／帳號／遊戲；[完整契約與本人恢復程序](save-compatibility.md)。

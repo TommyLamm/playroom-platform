@@ -1,4 +1,5 @@
 import { selectAdminPage } from './helpers/admin';
+import { mockAdminData } from './helpers/admin-fixtures';
 import { test, expect, type Page } from '@playwright/test';
 import type { AdminGame, StoredVersion } from '../../shared/types';
 import type { Source } from '../../shared/sources';
@@ -78,12 +79,15 @@ test('entering admin discovers releases, batch imports, sequentially reviews and
     for (const name of names) expect(publicGames.games.some((g: { id: string }) => g.id === `updates-${name}`)).toBe(true);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     const afterOperations = checks;
-    await page.waitForResponse((response) => response.url().endsWith('/api/v1/admin/overview'));
-    expect(checks).toBe(afterOperations, 'polling overview does not start a GitHub check');
+    await page.waitForResponse((response) => response.url().endsWith('/api/v1/admin/tasks'));
+    expect(checks).toBe(afterOperations, 'polling task status does not start a GitHub check');
     await page.screenshot({ path: `output/playwright/game-updates-${testInfo.project.name}.png`, fullPage: true });
     expect(errors).toEqual([]);
   } finally {
-    for (const name of names) await page.request.post(`/api/v1/admin/games/updates-${name}/unpublish`, { headers, data: {} });
+    for (const name of names) {
+      const { game } = await (await page.request.get(`/api/v1/admin/games/updates-${name}`)).json();
+      await page.request.post(`/api/v1/admin/games/updates-${name}/unpublish`, { headers, data: { expectedActiveVersion: game.activeVersion, expectedPublished: game.published } });
+    }
     for (const id of repositoryIds) await page.request.post(`/api/v1/admin/repositories/${id}/state`, { headers, data: { archived: true } });
   }
 });
@@ -93,7 +97,7 @@ test('update selection survives pagination and filtering without resetting other
     gameId: null, gameName: null, importedVersion: null, status: 'available',
     releases: [{ id: i + 5000, tag: 'v1.0.0', name: 'Stable', publishedAt: '2026-10-10', prerelease: false, asset: { id: i + 6000, name: 'game.zip', size: 100 } }],
   }));
-  await page.route('**/api/v1/admin/sources', (route) => route.fulfill({ json: { sources } }));
+  await mockAdminData(page, () => [], () => sources as Source[]);
   await login(page);
   await selectAdminPage(page, /^遊戲更新/);
   await page.getByRole('checkbox', { name: '更新 pagination/game-00', exact: true }).check();
@@ -116,12 +120,7 @@ test('current games with old unpublished drafts are hidden from pending updates 
   const source: Source = { id: 10000, fullName: 'owner/wecraft', createdAt: '2026-10-10', archived: false,
     checkedAt: '2026-10-10', checkError: null, importedReleaseIds: [1, 3], gameId: 'wecraft', gameName: 'WeCraft', importedVersion: '0.1.3', status: 'current',
     releases: [{ id: 3, tag: 'v0.1.3', name: 'v0.1.3', publishedAt: '2026-10-10', prerelease: false, asset: { id: 3, name: 'game.zip', size: 10 } }] };
-  await page.route('**/api/v1/admin/sources', (route) => route.fulfill({ json: { sources: [source] } }));
-  await page.route('**/api/v1/admin/overview', async (route) => {
-    const response = await route.fetch();
-    const overview = await response.json();
-    await route.fulfill({ json: { ...overview, games: [game] } });
-  });
+  await mockAdminData(page, () => [game], () => [source]);
   await login(page);
   await selectAdminPage(page, /^遊戲更新/);
   await expect(page.locator('.game-update-table tbody tr')).toHaveCount(0);
@@ -131,6 +130,7 @@ test('current games with old unpublished drafts are hidden from pending updates 
   await expect(row.getByRole('combobox')).toHaveCount(0);
   await expect(row.getByRole('button', { name: '預覽', exact: true })).toHaveCount(0);
   game.versions.unshift(version(5, '0.2.0-beta', null), version(4, '0.1.4', null));
+  await page.getByRole('button', { name: '重新整理', exact: true }).click();
   const choices = row.getByRole('combobox');
   await expect(choices).toHaveValue('0.1.4');
   await expect(choices.locator('option')).toHaveText(['手動選擇版本', 'v0.2.0-beta · 預發布', 'v0.1.4']);

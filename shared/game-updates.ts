@@ -7,10 +7,7 @@ export type SourceCheck = {
   total: number; completed: number; failed: number;
   startedAt: string; finishedAt: string | null; retryAt: number | null;
 };
-export type PublishSelection = {
-  gameId: string; version: string; expectedActiveVersion: string | null; expectedPublished: boolean;
-};
-export type PublishResult = { gameId: string; version: string; status: 'published' | 'skipped' | 'failed'; error: string | null };
+export type { PublishSelection, PublishResult } from './commands.js';
 // Compare numeric components without overflowing JavaScript's safe integer range.
 export function compareVersions(a: string, b: string) {
   const [coreA, ...preA] = a.split('-');
@@ -29,12 +26,12 @@ export function compareVersions(a: string, b: string) {
   }
   return 0;
 }
-export function updateRelease(source: Source, game?: AdminGame) {
+export function updateRelease(source: Source, game?: Pick<AdminGame, 'activeVersion'>) {
   if (source.archived || source.checkError || source.status === 'importing') return undefined;
   const release = defaultRelease(source.releases, source.importedReleaseIds);
   return release && (!game?.activeVersion || compareVersions(release.tag.slice(1), game.activeVersion) > 0) ? release : undefined;
 }
-export function pendingVersions(game: AdminGame): StoredVersion[] {
+export function pendingVersions<T extends Pick<StoredVersion, 'version' | 'publishedAt'>>(game: { activeVersion: string | null; versions: T[] }): T[] {
   return game.versions.filter((v) => !v.publishedAt &&
     (!game.activeVersion || compareVersions(v.version, game.activeVersion) > 0));
 }

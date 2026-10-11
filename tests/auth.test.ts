@@ -10,6 +10,7 @@ import { createApplication } from '../server/app.js';
 import { passwordHash, verifyPassword } from '../server/auth.js';
 import { openStore, users, sessions } from '../server/db.js';
 import { backup, restore } from '../server/maintenance.js';
+import { CURRENT_SCHEMA_VERSION } from '../server/database/version.js';
 
 test('registration creates only players; roles protect every management endpoint', async (t) => {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), 'playroom-accounts-'));
@@ -182,18 +183,8 @@ test('version-one database migrates administrator, sessions and game data withou
   t.after(() => fs.rm(root, { recursive: true, force: true }));
   const old = new Database(path.join(root, 'platform.sqlite'));
   const password = await passwordHash('existing-admin-password');
-  old.exec(`
-    CREATE TABLE admins (id INTEGER PRIMARY KEY CHECK(id = 1), username TEXT NOT NULL UNIQUE, password TEXT NOT NULL);
-    CREATE TABLE sessions (token_hash TEXT PRIMARY KEY, admin_id INTEGER NOT NULL REFERENCES admins(id), csrf TEXT NOT NULL, expires_at INTEGER NOT NULL);
-    CREATE TABLE repositories (id INTEGER PRIMARY KEY, full_name TEXT NOT NULL UNIQUE, created_at TEXT NOT NULL);
-    CREATE TABLE games (id TEXT PRIMARY KEY, active_version TEXT);
-    CREATE TABLE versions (id INTEGER PRIMARY KEY, game_id TEXT NOT NULL REFERENCES games(id), version TEXT NOT NULL,
-      manifest TEXT NOT NULL, sha256 TEXT NOT NULL, release_id INTEGER, asset_id INTEGER, release_tag TEXT,
-      imported_at TEXT NOT NULL, published_at TEXT);
-    CREATE INDEX sessions_expiry ON sessions(expires_at);
-    INSERT INTO games VALUES ('existing-game', '1.0.0');
-    PRAGMA user_version = 1;
-  `);
+  old.exec(await fs.readFile(new URL('./fixtures/database/v1.sql', import.meta.url), 'utf8'));
+  old.prepare('INSERT INTO games(id,active_version) VALUES(?,?)').run('existing-game', '1.0.0');
   old.prepare('INSERT INTO admins VALUES (1, ?, ?)').run('ExistingAdmin', password);
   old
     .prepare('INSERT INTO sessions VALUES (?, 1, ?, ?)')
@@ -201,14 +192,16 @@ test('version-one database migrates administrator, sessions and game data withou
   old.close();
   const store = openStore(root);
   try {
-    assert.equal(store.sqlite.pragma('user_version', { simple: true }), 10);
+    assert.equal(store.sqlite.pragma('user_version', { simple: true }), CURRENT_SCHEMA_VERSION);
     assert.equal(store.db.select().from(users).get()?.role, 'admin');
     assert.equal(store.db.select().from(users).get()?.password, password);
     assert.equal(store.db.select().from(sessions).get()?.userId, 1);
     assert.equal(store.db.select().from(sessions).get()?.csrf, 'legacy-csrf');
     assert.deepEqual(store.sqlite.prepare('SELECT * FROM games').get(), {
       id: 'existing-game',
+      repository_id: null,
       active_version: '1.0.0',
+      published: 0,
     });
     assert.deepEqual(store.sqlite.pragma('foreign_key_check'), []);
   } finally {

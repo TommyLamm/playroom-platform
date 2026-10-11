@@ -1,3 +1,4 @@
+import { CURRENT_SCHEMA_VERSION } from '../server/database/version.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { promises as fs } from 'node:fs';
@@ -79,7 +80,9 @@ test('every role enforces management boundaries; game managers can import, previ
   }
   assert.equal((await request('game_manager', 'GET', '/overview')).json().jobs[0].status, 'completed');
   assert.equal((await request('game_manager', 'POST', '/games/test-game/review', { version: '1.0.0', approved: true })).statusCode, 200);
-  for (const route of ['/games/test-game/preview', '/games/test-game/publish', '/games/test-game/unpublish']) assert.equal((await request('game_manager', 'POST', route, { version: '1.0.0' })).statusCode, 200, route);
+  assert.equal((await request('game_manager', 'POST', '/games/test-game/preview', { version: '1.0.0' })).statusCode, 200);
+  assert.equal((await request('game_manager', 'POST', '/games/test-game/publish', { version: '1.0.0', expectedActiveVersion: null, expectedPublished: false })).statusCode, 200);
+  assert.equal((await request('game_manager', 'POST', '/games/test-game/unpublish', { expectedActiveVersion: '1.0.0', expectedPublished: true })).statusCode, 200);
   const csrf = auth.game_manager['x-csrf-token'];
   auth.game_manager['x-csrf-token'] = 'invalid';
   assert.equal((await request('game_manager', 'POST', '/games/test-game/publish', { version: '1.0.0' })).statusCode, 403);
@@ -102,13 +105,16 @@ test('account assignments protect the last administrator, reject stale changes a
   const admin = await login('admin');
   const player = await login('player');
   const change = (id: number, role: string, expectedRole: string, actingHeaders = admin) => app.platform.inject({ method: 'POST', url: `/api/v1/admin/accounts/${id}/role`, headers: actingHeaders, payload: { role, expectedRole } });
-  assert.equal((await change(1, 'player', 'admin')).statusCode, 409);
+  const lastAdmin = await change(1, 'player', 'admin');
+  assert.equal(lastAdmin.statusCode, 409); assert.equal(lastAdmin.json().code, 'LAST_ADMIN_REQUIRED');
   assert.equal((await change(2, 'owner', 'player')).statusCode, 400);
   assert.equal((await change(999, 'player', 'player')).statusCode, 404);
   assert.equal((await change(2, 'admin', 'player', player)).statusCode, 403);
   assert.equal((await change(2, 'game_manager', 'player', { ...admin, 'x-csrf-token': 'bad' })).statusCode, 403);
   assert.equal((await change(2, 'game_manager', 'player')).statusCode, 200);
-  assert.equal((await change(2, 'analyst', 'player')).statusCode, 409);
+  const staleRole = await change(2, 'analyst', 'player');
+  assert.equal(staleRole.statusCode, 409); assert.equal(staleRole.json().code, 'STATE_CONFLICT');
+  assert.deepEqual(staleRole.json().details, { role: 'game_manager' });
   assert.equal((await app.platform.inject({ url: '/api/v1/admin/overview', headers: player })).statusCode, 200);
   assert.equal((await change(2, 'analyst', 'game_manager')).statusCode, 200);
   assert.equal((await app.platform.inject({ url: '/api/v1/admin/overview', headers: player })).statusCode, 403);
@@ -142,11 +148,11 @@ test('v7 role constraint migrates without changing account IDs, sessions or refe
   store.sqlite.exec(`INSERT INTO account_settings VALUES (5,'private'); INSERT INTO sessions VALUES ('token',5,'csrf',${Date.now() + 100000});`);
   store.sqlite.pragma('foreign_keys = OFF');
   store.sqlite.exec(`CREATE TABLE users_v7 (id INTEGER PRIMARY KEY AUTOINCREMENT,username TEXT NOT NULL COLLATE NOCASE UNIQUE,password TEXT NOT NULL,role TEXT NOT NULL DEFAULT 'player' CHECK(role IN ('player','admin')),created_at TEXT NOT NULL DEFAULT '');
-    INSERT INTO users_v7 SELECT * FROM users; DROP TABLE users; ALTER TABLE users_v7 RENAME TO users; UPDATE sqlite_sequence SET seq=50 WHERE name='users'; PRAGMA user_version=7;`);
+    INSERT INTO users_v7 SELECT * FROM users; DROP TABLE users; ALTER TABLE users_v7 RENAME TO users; UPDATE sqlite_sequence SET seq=50 WHERE name='users'; DROP TABLE installations; DROP TABLE cloud_save_snapshots; DROP INDEX cloud_saves_game_format; ALTER TABLE cloud_saves DROP COLUMN source_snapshot_id; PRAGMA user_version=7;`);
   store.sqlite.close();
   const upgraded = openStore(root);
   try {
-    assert.equal(upgraded.sqlite.pragma('user_version', { simple: true }), 10);
+    assert.equal(upgraded.sqlite.pragma('user_version', { simple: true }), CURRENT_SCHEMA_VERSION);
     assert.equal(upgraded.db.select().from(users).all()[0].password, password);
     assert.equal((upgraded.sqlite.prepare('SELECT user_id FROM sessions').get() as { user_id: number }).user_id, 5);
     assert.equal((upgraded.sqlite.prepare('SELECT career_visibility FROM account_settings WHERE user_id=5').get() as { career_visibility: string }).career_visibility, 'private');

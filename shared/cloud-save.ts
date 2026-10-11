@@ -27,6 +27,22 @@ export const saveProgressInput = z.object({
   formatVersion: z.number().int().min(1).max(Number.MAX_SAFE_INTEGER),
 }).strict();
 export const saveProgressRequest = saveProgressInput.extend({ version: gameVersion, requestId: z.string().uuid() });
+export const loadProgressQuery = z.object({ version: gameVersion.optional() }).strict();
+export const restoreProgressRequest = z.object({
+  snapshotId: z.number().int().positive().max(Number.MAX_SAFE_INTEGER),
+  revision: z.number().int().min(0).max(Number.MAX_SAFE_INTEGER - 1),
+  requestId: z.string().uuid(),
+}).strict();
+export const MAX_SAVE_SNAPSHOTS = 20;
+export type SaveCompatibilitySummary = {
+  status: 'compatible' | 'incompatible' | 'unknown'; total: number; affected: number;
+  formats: { formatVersion: number; count: number; compatibility: 'compatible' | 'incompatible' | 'unknown' }[];
+};
+export type SaveSnapshotList = {
+  revision: number;
+  snapshots: { id: number; revision: number; formatVersion: number; gameVersion: string;
+    updatedAt: string; capturedAt: string; reason: 'migration' | 'restore' }[];
+};
 export type ProgressSave = {
   data: Record<string, unknown>; revision: number; formatVersion: number;
   gameVersion: string; updatedAt: string;

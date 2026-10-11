@@ -8,7 +8,9 @@ import { hashToken, token } from './auth.js';
 import { AppError } from './errors.js';
 import { gameId, gameVersion } from '../shared/manifest.js';
 import type { VisitorAnalytics, VisitorRecords } from '../shared/visitors.js';
-import { canAccessAdmin, type UserRole } from '../shared/account.js';
+import { canAccessAdmin } from '../shared/account.js';
+import { audienceAccount } from './account-session-service.js';
+import { audienceGame } from './game-catalog.js';
 
 const retentionMs = 90 * 86400000;
 const daysSchema = z.enum(['7', '30']).default('7');
@@ -54,14 +56,11 @@ export function registerVisitors(platform: FastifyInstance, store: Store, config
     const now = Date.now();
     let game: { name: string } | undefined;
     if (input.kind === 'game_open') {
-      game = sql.prepare(`SELECT json_extract(v.manifest,'$.name') AS name FROM games g
-        JOIN versions v ON v.game_id=g.id WHERE g.id=? AND g.published=1 AND v.version=? AND v.published_at IS NOT NULL`)
-        .get(input.gameId!, input.version!) as typeof game;
+      game = audienceGame(store, input.gameId!, input.version!);
       if (!game) throw new AppError(404, '遊戲尚未發布或已下架');
     }
     const rawSession = request.cookies[sessionCookie];
-    const user = rawSession ? sql.prepare(`SELECT u.id,u.role FROM sessions s JOIN users u ON u.id=s.user_id
-      WHERE s.token_hash=? AND s.expires_at>?`).get(hashToken(rawSession), now) as { id: number; role: UserRole } | undefined : undefined;
+    const user = audienceAccount(store, rawSession, now);
     // Administrative activity (including previews) is excluded from audience data.
     if (user && canAccessAdmin(user.role)) return reply.code(204).send();
     const ip = request.ip.replace(/^::ffff:/i, '');
