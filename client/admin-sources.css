@@ -257,6 +257,21 @@
 .source-owner-form label {
   flex: 1;
 }
+.add-sources .source-input-field {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  margin-bottom: 0;
+}
+.source-input-field > input {
+  margin-top: 0;
+  min-height: 44px;
+}
+.add-sources .source-owner-form > .button {
+  min-height: 44px;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
 .source-owner-chips {
   display: flex;
   gap: 8px;
@@ -380,9 +395,34 @@
   margin-top: 12px;
 }
 .add-sources textarea {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  min-height: 160px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  padding: 12px 14px;
+  background: #f8faf8;
+  color: var(--ink);
+  font: inherit;
   resize: vertical;
   font-size: 13px;
   line-height: 1.7;
+  transition: border-color .15s, box-shadow .15s, background-color .15s;
+}
+.add-sources textarea::placeholder {
+  color: #909b97;
+}
+.add-sources textarea:focus {
+  border-color: var(--green);
+  background: #fff;
+  outline: 2px solid #40a28b;
+  outline-offset: 2px;
+  box-shadow: 0 0 0 4px #13765f0d;
+}
+.add-sources textarea:disabled {
+  opacity: .55;
+  cursor: not-allowed;
 }
 .add-sources form > .muted {
   font-size: 11px;

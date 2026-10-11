@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { Github, LoaderCircle, Plus, X } from 'lucide-react';
 import { api } from '../../api';
 import type { Repository } from '../../../shared/types';
@@ -39,6 +39,7 @@ export function AddSources({
   initialMode?: 'discover' | 'paste';
 }) {
   const [mode, setMode] = useState(initialMode);
+  const repositoryHintId = useId();
   const [owners, setOwners] = useState<GitHubOwner[]>([]);
   const [login, setLogin] = useState('');
   const [owner, setOwner] = useState('');
@@ -209,7 +210,7 @@ export function AddSources({
               void addOwner();
             }}
           >
-            <label>
+            <label className="source-input-field">
               GitHub 帳號或組織
               <input
                 aria-label="GitHub 帳號或組織"
@@ -383,10 +384,11 @@ export function AddSources({
             );
           }}
         >
-          <label>
+          <label className="source-input-field">
             Repository
             <textarea
               aria-label="Repository"
+              aria-describedby={repositoryHintId}
               value={text}
               onChange={(e) => setText(e.target.value)}
               placeholder={'owner/game-one\nhttps://github.com/owner/game-two'}
@@ -394,9 +396,12 @@ export function AddSources({
               maxLength={24000}
               required
               disabled={busy}
+              spellCheck={false}
             />
           </label>
-          <p className="muted">一行一個 URL 或 owner/repo；重複來源只加入一次，每次最多 100 個。</p>
+          <p className="muted" id={repositoryHintId}>
+            一行一個 URL 或 owner/repo；重複來源只加入一次，每次最多 100 個。
+          </p>
           <div className="source-actions">
             <button className="button primary" disabled={busy || !text.trim()}>
               <Plus size={16} />
