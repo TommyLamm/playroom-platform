@@ -69,7 +69,7 @@ npm run game:validate -- artifacts/game.zip
 
 將 `templates/game-release.yml` 複製到遊戲 repository 的 `.github/workflows/release.yml`。預設成品放在 `game/`；只需修改 workflow 的 `GAME_DIR` 為 repository 內的成品目錄。若使用框架，在版本檢查前加入遊戲自己的安裝及 build 步驟，例如 `npm ci` 與 `npm run build`，並將 `GAME_DIR` 設成 `dist`。
 
-推送 `v1.0.0` tag 後，workflow 會核對 tag 與 `game.json` 版本，以 Node 24 驗證遊戲 repository 固定工具 ZIP 的 SHA-256、版本及逐檔校驗資訊，解壓至 runner 暫存目錄，執行自包含 pack/validate CLI。平台 checkout 及輸出 ZIP 都在成品目錄之外；完整檢查包含 Manifest Schema、入口／封面、路徑安全、檔名碰撞、符號連結及 ZIP 大小／檔案數限制。任何步驟失敗都不會建立 Release，不要加入 `continue-on-error` 或 `always()` 繞過驗證。
+推送 `v1.0.0` tag 後，workflow 會核對 tag 與 `game.json` 版本，以 Node 24.22.1+ 驗證遊戲 repository 固定工具 ZIP 的 SHA-256、版本及逐檔校驗資訊，解壓至 runner 暫存目錄，執行自包含 pack/validate CLI。平台 checkout 及輸出 ZIP 都在成品目錄之外；完整檢查包含 Manifest Schema、入口／封面、路徑安全、檔名碰撞、符號連結及 ZIP 大小／檔案數限制。任何步驟失敗都不會建立 Release，不要加入 `continue-on-error` 或 `always()` 繞過驗證。
 
 通過後才將唯一的 `game.zip` 發布到遊戲 repository；GitHub token 僅提供給發布步驟，checkout 不保留憑證，平台工具不取得發布 token。含預發布後綴的版本（例如 `1.2.3-beta.1`）會透過 [GitHub CLI 的 --prerelease 選項](https://cli.github.com/manual/gh_release_create) 標記為預發布，平台須手動選擇匯入。平台匯入時仍會再次執行完整驗證。workflow 不會覆寫既有 Release；修正遊戲時請提高版本、發布新 tag。這些檢查不代替 SDK 接入、真實遊玩及桌面／手機的瀏覽器驗收。
 

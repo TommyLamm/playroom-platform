@@ -1,5 +1,5 @@
-FROM docker:29-cli AS dockercli
-FROM node:24-alpine
+FROM docker:29.9.2-cli AS dockercli
+FROM node:24.22.1-alpine
 RUN apk add --no-cache git
 COPY --from=dockercli /usr/local/bin/docker /usr/local/bin/docker
 COPY --from=dockercli /usr/local/libexec/docker/cli-plugins /usr/local/libexec/docker/cli-plugins

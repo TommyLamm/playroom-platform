@@ -31,7 +31,7 @@ iPhone 玩家可按播放器工具列的「加入主畫面」查看安裝指引�
 
 ## 本機啟動
 
-需要 Node.js 24+。預設平台網址為 `http://localhost:3000`，遊戲來源為 `http://127.0.0.1:3001`。請使用 `localhost` 開啟平台；兩者刻意使用不同主機名稱來隔離 Cookie。
+需要 Node.js 24.22.1+。預設平台網址為 `http://localhost:3000`，遊戲來源為 `http://127.0.0.1:3001`。請使用 `localhost` 開啟平台；兩者刻意使用不同主機名稱來隔離 Cookie。
 
 ```sh
 npm ci
@@ -51,7 +51,7 @@ npm start
 
 ### 開發與部署 shortcuts（Makefile）
 
-日常開發使用本機 Node.js 24+，不需要 Docker。已安裝 GNU Make 時，可在 repository 根目錄使用以下 shortcuts；Windows 需另行安裝 GNU Make 並加入 PATH，亦可直接使用對應的 npm 指令。
+日常開發使用本機 Node.js 24.22.1+，不需要 Docker。已安裝 GNU Make 時，可在 repository 根目錄使用以下 shortcuts；Windows 需另行安裝 GNU Make 並加入 PATH，亦可直接使用對應的 npm 指令。
 
 | 指令 | 使用時機／對應操作 |
 | --- | --- |
@@ -68,7 +68,7 @@ npm start
 
 也可分別執行 `make install`、`make typecheck`、`make test`、`make sdk-check` 或 `make boundaries`。`make check` 不包含 E2E、依賴漏洞掃描或 Docker smoke test；瀏覽器相關修改另跑 `make e2e`，依賴檢查使用 `npm audit`，容器相關修改依 CI 執行 Docker 驗證。`make setup` 僅供本機試用；正式部署使用上面的互動式管理員初始化。
 
-首次本機開啟執行 `make first-start`，完成安裝及初始化後自動啟動開發服務，開啟 `http://localhost:5173`；管理員密碼見 `data/local-admin.txt`（自訂 DATA_DIR 時寫到該目錄）。需要 Node.js 24+ 及 GNU Make；若有 `.env`，初始化會一併載入，須使用上面的本機 HTTP origins，不能沿用正式部署 HTTPS 設定。只想安裝及初始化而不啟動時用 `make setup`。
+首次本機開啟執行 `make first-start`，完成安裝及初始化後自動啟動開發服務，開啟 `http://localhost:5173`；管理員密碼見 `data/local-admin.txt`（自訂 DATA_DIR 時寫到該目錄）。需要 Node.js 24.22.1+ 及 GNU Make；若有 `.env`，初始化會一併載入，須使用上面的本機 HTTP origins，不能沿用正式部署 HTTPS 設定。只想安裝及初始化而不啟動時用 `make setup`。
 
 其後平時只用 `make start`，提交前用 `make check`。已有依賴與資料時不需再跑 first-start／setup，也不需另外跑 dev；setup 會安裝依賴及建立／更新範例資料，start 只啟動開發服務。`make start` 現在指本機開發，原本啟動建置版本的用途改為 `make start-built`。
 
@@ -190,7 +190,7 @@ docker compose run --rm --no-deps app npm run demo:seed
 
 管理員預覽提供 SDK 診斷面板，顯示連線、遊戲版本、榜單規則及最近 80 筆局次／成績／錯誤事件，可清除事件或重新開始。支援診斷的新 SDK 在預覽建立記憶體內模擬局次並驗證成績，完全不寫入遊玩記錄、生涯或排行榜；舊 SDK 會提示更新，沒有 SDK 時顯示未連線。診斷不能代替實際玩法與裝置驗收。
 
-遊戲 repository 可使用 [Release workflow 範本](templates/game-release.yml)，將 `GAME_DIR` 設成成品目錄，並按需要加入遊戲的安裝／建置步驟。範本取得平台 `main` 的最新工具，以 Node 24 完成打包及完整 ZIP 驗證，通過後才建立 Release；規格、資源、路徑或大小檢查失敗會停止發布。既有遊戲 repository 需自行更新其 workflow，平台中的範本變更不會自動同步過去。
+遊戲 repository 可使用 [Release workflow 範本](templates/game-release.yml)，將 `GAME_DIR` 設成成品目錄，並按需要加入遊戲的安裝／建置步驟。範本取得平台 `main` 的最新工具，以 Node 24.22.1+ 完成打包及完整 ZIP 驗證，通過後才建立 Release；規格、資源、路徑或大小檢查失敗會停止發布。既有遊戲 repository 需自行更新其 workflow，平台中的範本變更不會自動同步過去。
 
 ## 備份與還原
 

@@ -1,0 +1,13 @@
+{
+  "name": "playroom-nginx-security-dependencies",
+  "private": true,
+  "version": "1.0.0",
+  "dependencies": {
+    "basic-ftp": "6.2.1",
+    "brace-expansion": "5.0.12",
+    "fast-uri": "3.1.8",
+    "ip-address": "10.7.4",
+    "proxy-addr": "2.0.8",
+    "undici": "6.28.1"
+  }
+}

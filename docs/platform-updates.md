@@ -73,3 +73,13 @@ docker compose -f compose.yaml -f compose.ota.yaml -f ota-state/active.json exec
 手動回復時先停止 app，保留原資料 volume，依 README 的還原流程還原備份到新 volume，再將 active.json 的 app image 和 /data volume 指向舊映像與新 volume。先確認主機路徑與備份完整性，不可使用 `down -v` 清除資料。
 
 相關指令依據：[Git fetch](https://git-scm.com/docs/git-fetch)、[Docker Compose up](https://docs.docker.com/reference/cli/docker/compose/up/)。
+
+## 安全更新與容器 runtime
+
+平台及遊戲驗證工具需要 Node.js 24.22.1+。app 與 updater Dockerfile 固定已修補的 Node 版本；後續安全版發布時需更新版本並重建映像。只重啟舊映像不會更新容器 runtime。CI 與遊戲 Release workflow 使用 check-latest，避免沿用 runner 快取中較舊的 Node 24。
+
+手動安全更新先用 --pull 建置新的獨立映像標籤，保留現有 OTA active.json 與資料 volume，切換 app 前使用既有 backup 指令備份，並保留舊映像與設定供回復。OTA 只替換 app；updater 需另外更新，其新映像應記錄於 ota-state/active.json，讓往後三檔 Compose 操作保留該設定。
+
+獨立反向代理可參考暫時性的 [Nginx Proxy Manager 安全補丁映像](../deployment/nginx-proxy-manager/README.md)。它更新 Node 及已核對的 JavaScript 依賴，不修補 OpenResty 核心。管理埠仍只綁定 localhost；上游修補映像可用前，保留文件列出的緩解設定。
+
+部署本機安全原始碼快照不會自動發布至 GitHub。再次使用 OTA 前，先將安全修正提交並合併到設定的更新分支，避免 OTA 從舊分支重新建置未修補的依賴。

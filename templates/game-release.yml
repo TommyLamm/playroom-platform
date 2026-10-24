@@ -27,6 +27,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
+          check-latest: true
       # Add npm ci and npm run build here if compilation is needed.
       # Change GAME_DIR above to the build output directory in that case.
       - name: Check release version and resolve artifact directory

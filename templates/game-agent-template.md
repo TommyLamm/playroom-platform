@@ -76,7 +76,7 @@
    ```
 
    工具 ZIP、lock、工具執行目錄與遊戲 ZIP 都放在成品目錄之外；升級驗證工具須同時更新版本、ZIP 與 SHA-256 lock。Schema 驗證或手動 `zip` 不取代完整 ZIP 驗證。
-3. 複製最新 Release workflow，將 `GAME_DIR` 設為 repository 內的成品目錄；需要編譯時，在版本檢查前加上遊戲的安裝／build 步驟。範本用 Node 24、驗證固定工具 ZIP 與 metadata、完整驗證後才發布，預發布版本標記為 `prerelease`；不以 `continue-on-error` 或 `always()` 繞過失敗。
+3. 複製最新 Release workflow，將 `GAME_DIR` 設為 repository 內的成品目錄；需要編譯時，在版本檢查前加上遊戲的安裝／build 步驟。範本用已套用安全更新的 Node 24.22.1+、驗證固定工具 ZIP 與 metadata、完整驗證後才發布，預發布版本標記為 `prerelease`；不以 `continue-on-error` 或 `always()` 繞過失敗。
 4. 用真實瀏覽器測試子目錄及跨來源 iframe，設定 `sandbox="allow-scripts allow-same-origin allow-pointer-lock"`、`allow="fullscreen; autoplay; gamepad"`。測試完整玩法、所有宣告裝置、音效／全螢幕、console、資源及更新存檔；只開 `index.html` 或 build 成功不算 iframe 驗收。
 5. 有 SDK 時另測登入保存、訪客、獨立開啟、預覽診斷、重新開始、失敗重試與 session 失效；核對榜單、生涯及本人逐局記錄。涉及生涯顯示時驗證 `public`／`limited`／`private`。無法執行的項目列為未驗證，不以推測或 mock 宣稱通過。
 6. `game.json` 版本不含 v，tag 為 `v<version>` 且一致。修正已發布成品須增加版本，不移動 tag、不刪除或覆寫既有 Release／`game.zip`。

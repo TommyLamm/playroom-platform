@@ -11,7 +11,7 @@ COMPOSE := docker compose -f compose.yaml
 endif
 
 help:
-	@echo "Local development (Node.js 24+):"
+	@echo "Local development (Node.js 24.22.1+):"
 	@echo "make first-start Install dependencies, initialize local preview, then start development (stop platform first)"
 	@echo "make setup      Install dependencies and initialize local admin/demo games (stop platform first)"
 	@echo "make start      Start local development at http://localhost:5173 (dev is an alias)"
