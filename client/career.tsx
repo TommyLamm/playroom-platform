@@ -33,13 +33,14 @@ export function LeaderboardPanel({ gameId, activeBoardId }: { gameId: string; ac
     }).catch((e: Error) => { if (!cancelled) setError(e.message); });
     return () => { cancelled = true; };
   }, [gameId, selected, refresh]);
+  // Games without any board, current or historical, have nothing to rank; skip the empty panel.
+  if (!error && (boards ? !boards.length : !activeBoardId)) return null;
   return <section className="career-section" id="leaderboard">
     <div className="section-heading"><h2>玩家排行榜</h2>
       <button className="button secondary small" onClick={() => setRefresh((n) => n + 1)}>重新整理排行榜</button>
     </div>
     <p className="muted">每位玩家的最佳成績 · 同分並列 · 休閒排行榜</p>
-    {error ? <p role="alert">{error}</p> : boards === null ? <p role="status">排行榜載入中…</p> : !boards.length ?
-      <p>此遊戲尚未接入成績排行榜</p> : <>
+    {error ? <p role="alert">{error}</p> : !boards?.length ? <p role="status">排行榜載入中…</p> : <>
         <label className="career-filter">榜單<select aria-label="選擇榜單" value={selected} onChange={(e) => { setError(''); setSelected(e.target.value); }}>
           {boards.map((board) => <option key={board.id} value={board.id}>{board.id}{board.id === activeBoardId ? '（目前）' : ''} · {board.order === 'asc' ? '越低越好' : '越高越好'}</option>)}
         </select></label>

@@ -74,7 +74,7 @@ test('players register, sign in and stay outside the admin workspace', async ({
     );
     await page.setViewportSize({ width: 390, height: 844 });
   }
-  await page.locator('.game-card').filter({ hasText: '光點反應' }).click();
+  await page.locator('.game-card').filter({ hasText: '光點反應' }).getByRole('link', { name: '光點反應', exact: true }).click();
   await page.getByRole('link', { name: '開始遊戲' }).click();
   await expect(page.frameLocator('iframe').locator('#start')).toBeVisible();
 });
@@ -103,10 +103,16 @@ test('browse, filter, play and return on desktop and mobile', async ({ page }, t
   await page.getByRole('textbox', { name: '搜尋遊戲' }).fill('不存在');
   await expect(page.getByRole('heading', { name: '還沒有找到這款遊戲' })).toBeVisible();
   await page.getByRole('button', { name: '清除搜尋' }).click();
-  await page.getByRole('button', { name: '觀察', exact: true }).click();
+  const categories = page.getByRole('group', { name: '遊戲分類' });
+  await categories.getByRole('button', { name: '觀察 1', exact: true }).click();
   await expect(page.locator('.game-card')).toHaveCount(1);
-  await page.getByRole('button', { name: '全部遊戲', exact: true }).click();
-  await page.locator('.game-card').filter({ hasText: '光點反應' }).click();
+  await categories.getByRole('button', { name: '全部遊戲', exact: true }).click();
+  // Card tags filter in place without opening the game.
+  await page.getByRole('button', { name: '篩選「反應」分類' }).click();
+  await expect(page.locator('.game-card')).toHaveCount(1);
+  await expect(categories.getByRole('button', { name: '反應 1', exact: true })).toHaveAttribute('aria-pressed', 'true');
+  await categories.getByRole('button', { name: '全部遊戲', exact: true }).click();
+  await page.locator('.game-card').filter({ hasText: '光點反應' }).getByRole('link', { name: '光點反應', exact: true }).click();
   await expect(page.getByRole('heading', { name: '玩法與操作' })).toBeVisible();
   await page.getByRole('link', { name: '開始遊戲' }).click();
   const game = page.frameLocator('iframe');

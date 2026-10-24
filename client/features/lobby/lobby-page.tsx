@@ -1,4 +1,4 @@
-import { useCallback, useContext, useEffect, useState } from 'react';
+import { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowRight, ChevronDown, Gamepad2, Grid2X2, Monitor, Play, Plus, Search, Smartphone, Sparkles, X } from 'lucide-react';
 import type { PublicGame } from '../../../shared/types';
@@ -8,14 +8,19 @@ import { FavoriteButton, PlayerLibrarySections } from '../../player-library';
 import { SessionContext } from '../../environment/session';
 import { Spinner, Empty, ErrorMessage } from '../../ui/status';
 import { date } from '../../ui/date';
+import { desktopOnly, useTouchOnly } from '../../ui/device';
+import { CatalogFilters } from './catalog-filters';
+import { catalogTags, tagKey } from './catalog-tags';
 
 export function Lobby() {
   const { session } = useContext(SessionContext);
   const [games, setGames] = useState<PublicGame[] | null>(null);
   const [error, setError] = useState('');
   const [search, setSearch] = useState('');
-  const [tag, setTag] = useState('全部遊戲');
+  const [tag, setTag] = useState('');
   const [sort, setSort] = useState('recent');
+  const toolbar = useRef<HTMLDivElement>(null);
+  const touchOnly = useTouchOnly();
   const load = useCallback(() => {
     setError('');
     void api<{ games: PublicGame[] }>('/games')
@@ -23,19 +28,28 @@ export function Lobby() {
       .catch((e) => setError(e.message));
   }, []);
   useEffect(load, [load]);
-  const tags = [...new Set(games?.flatMap((g) => g.tags))];
+  const tags = useMemo(() => catalogTags(games ?? []), [games]);
+  function filterFromCard(key: string) {
+    setTag(key);
+    // A card far down the grid would otherwise leave the active filter scrolled out of view.
+    if (toolbar.current && toolbar.current.getBoundingClientRect().top < 0)
+      toolbar.current.scrollIntoView({ block: 'start',
+        behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+  }
   const filtered = (games || [])
     .filter(
       (g) =>
-        (tag === '全部遊戲' || g.tags.includes(tag)) &&
+        (!tag || g.tags.some((t) => tagKey(t) === tag)) &&
         `${g.name} ${g.author} ${g.description} ${g.tags.join(' ')}`
           .toLowerCase()
           .includes(search.toLowerCase().trim()),
     )
     .sort((a, b) =>
-      sort === 'name'
+      // On touch devices, games that need a desktop go last so playable ones come first.
+      (touchOnly ? Number(desktopOnly(a)) - Number(desktopOnly(b)) : 0) ||
+      (sort === 'name'
         ? a.name.localeCompare(b.name, 'zh-Hant')
-        : b.publishedAt.localeCompare(a.publishedAt),
+        : b.publishedAt.localeCompare(a.publishedAt)),
     );
   return (
     <main className="page lobby">
@@ -57,19 +71,8 @@ export function Lobby() {
       <PlayerLibrarySections games={games} />
       <section aria-label="遊戲目錄" className="lobby-catalog">
         <div className="lobby-catalog-heading"><div><h2>探索遊戲</h2><p>從熟悉的玩法，到意想不到的小樂趣。</p></div><span><Grid2X2 size={15} />遊戲收藏館</span></div>
-        <div className="catalog-toolbar">
-          <div className="filter-tabs" aria-label="遊戲分類">
-            {['全部遊戲', ...tags].map((t) => (
-              <button
-                key={t}
-                className={tag === t ? 'active' : ''}
-                onClick={() => setTag(t)}
-                aria-pressed={tag === t}
-              >
-                {t === '全部遊戲' && <Grid2X2 size={15} />} {t}
-              </button>
-            ))}
-          </div>
+        <div className="catalog-toolbar" ref={toolbar}>
+          <CatalogFilters tags={tags} selected={tag} onSelect={setTag} />
           <label className="search-field">
             <Search size={17} />
             <input
@@ -87,7 +90,7 @@ export function Lobby() {
         </div>
         <div className="catalog-meta">
           <span>
-            {search || tag !== '全部遊戲' ? `找到 ${filtered.length} 款遊戲` : '所有遊戲'}
+            {search || tag ? `找到 ${filtered.length} 款遊戲` : '所有遊戲'}
             <span className="count-pill">{filtered.length}</span>
           </span>
           <label className="sort-field">
@@ -118,7 +121,7 @@ export function Lobby() {
               className="button"
               onClick={() => {
                 setSearch('');
-                setTag('全部遊戲');
+                setTag('');
               }}
             >
               顯示所有遊戲
@@ -127,8 +130,7 @@ export function Lobby() {
         ) : (
           <div className="game-grid">
             {filtered.map((game, i) => (
-              <article className="game-card-wrap" key={game.id}>
-              <Link className="game-card" to={`/games/${game.id}`}>
+              <article className="game-card-wrap game-card" key={game.id}>
                 <div className="game-art">
                   <img
                     src={game.coverUrl}
@@ -138,17 +140,23 @@ export function Lobby() {
                   <span className="art-play">
                     <Play size={22} fill="currentColor" />
                   </span>
-                  <span className="game-index"><Play size={10} fill="currentColor" />隨時開玩</span>
+                  {touchOnly && desktopOnly(game)
+                    ? <span className="game-index desktop-only"><Monitor size={11} />僅支援電腦</span>
+                    : <span className="game-index"><Play size={10} fill="currentColor" />隨時開玩</span>}
                 </div>
                 <div className="game-card-body">
                   <div className="card-tags">
-                    {game.tags.slice(0, 2).map((t) => (
-                      <span key={t}>{t}</span>
+                    {game.tags.slice(0, 2).map((t, index) => (
+                      <button key={index} className={tag === tagKey(t) ? 'active' : ''}
+                        aria-label={`篩選「${t}」分類`} onClick={() => filterFromCard(tagKey(t))}>{t}</button>
                     ))}
                   </div>
                   <h2>
-                    {game.name}
-                    <ArrowRight size={19} />
+                    {/* The link stretches over the whole card; tag buttons sit above it. */}
+                    <Link className="game-card-link" to={`/games/${game.id}`}>
+                      {game.name}
+                      <ArrowRight size={19} />
+                    </Link>
                   </h2>
                   <p>{game.description}</p>
                   <div className="card-bottom">
@@ -163,8 +171,7 @@ export function Lobby() {
                     </span>
                   </div>
                 </div>
-              </Link>
-              <FavoriteButton game={game} compact />
+                <FavoriteButton game={game} compact />
               </article>
             ))}
           </div>

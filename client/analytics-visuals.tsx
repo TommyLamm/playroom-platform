@@ -23,12 +23,12 @@ export function DailyTrend({ rows, title, primary, secondary }: { rows: { day: s
   return <div className="analytics-trend"><div className="analytics-chart-legend"><span><i />{primary}</span><span><i />{secondary}</span><small>每日統計 · UTC</small></div>
     <svg viewBox="0 0 720 212" role="img" aria-labelledby={`${id}-title ${id}-description`}>
       <title id={`${id}-title`}>{title}</title><desc id={`${id}-description`}>{rows[0].day} 至 {rows.at(-1)!.day} 的{primary}與{secondary}，完整數值可展開下方每日統計查看。</desc>
-      <defs><linearGradient id={`${id}-fill`} x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#13765f" stopOpacity=".14" /><stop offset="100%" stopColor="#13765f" stopOpacity=".01" /></linearGradient></defs>
-      {[0, max / 2, max].map((value, index) => <g key={index}><line x1="48" x2="692" y1={y(value)} y2={y(value)} stroke="#e4ece7" strokeDasharray="4 5" /><text x="35" y={y(value) + 4} textAnchor="end">{format(value)}</text></g>)}
+      <defs><linearGradient id={`${id}-fill`} x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#c24a2a" stopOpacity=".14" /><stop offset="100%" stopColor="#c24a2a" stopOpacity=".01" /></linearGradient></defs>
+      {[0, max / 2, max].map((value, index) => <g key={index}><line x1="48" x2="692" y1={y(value)} y2={y(value)} stroke="#efe4d8" strokeDasharray="4 5" /><text x="35" y={y(value) + 4} textAnchor="end">{format(value)}</text></g>)}
       <polygon points={`48,178 ${points('first')} ${x(rows.length - 1)},178`} fill={`url(#${id}-fill)`} />
-      <polyline points={points('first')} fill="none" stroke="#13765f" strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" />
+      <polyline points={points('first')} fill="none" stroke="#c24a2a" strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" />
       <polyline points={points('second')} fill="none" stroke="#779bcc" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
-      {rows.map((row, index) => <g key={row.day}><title>{row.day} · {primary} {format(row.first)} · {secondary} {format(row.second)}</title><circle cx={x(index)} cy={y(row.first)} r="3" fill="#13765f" /><circle cx={x(index)} cy={y(row.second)} r="2.5" fill="#779bcc" /></g>)}
+      {rows.map((row, index) => <g key={row.day}><title>{row.day} · {primary} {format(row.first)} · {secondary} {format(row.second)}</title><circle cx={x(index)} cy={y(row.first)} r="3" fill="#c24a2a" /><circle cx={x(index)} cy={y(row.second)} r="2.5" fill="#779bcc" /></g>)}
       {[0, midpoint, rows.length - 1].filter((index, position, values) => values.indexOf(index) === position).map((index) => <text key={index} x={x(index)} y="204" textAnchor={index === 0 ? 'start' : index === rows.length - 1 ? 'end' : 'middle'}>{rows[index].day.slice(5).replace('-', '/')}</text>)}
     </svg>
   </div>;

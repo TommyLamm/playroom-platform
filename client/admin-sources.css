@@ -90,7 +90,7 @@
   background: #fff;
 }
 .source-search:focus-within {
-  outline: 2px solid var(--green);
+  outline: 2px solid var(--primary);
   outline-offset: 2px;
 }
 .source-search svg {
@@ -118,13 +118,13 @@
   flex-wrap: wrap;
   justify-content: space-between;
   gap: 10px;
-  border: 1px solid #c3dcd2;
-  background: #eff8f3;
+  border: 1px solid var(--tint-line);
+  background: var(--tint-soft);
   padding: 12px 14px;
   border-radius: 8px;
   margin: 12px 0;
   font-size: 12px;
-  box-shadow: 0 5px 18px #15292308;
+  box-shadow: 0 5px 18px #3a241808;
 }
 .source-table-wrap {
   overflow-x: auto;
@@ -141,7 +141,7 @@
   padding: 12px 10px;
   border-bottom: 1px solid var(--line);
   white-space: nowrap;
-  background: #f8faf8;
+  background: var(--surface-soft);
 }
 .source-table td {
   padding: 16px 10px;
@@ -172,7 +172,7 @@
   height: 16px;
   margin: 0;
   padding: 0;
-  accent-color: var(--green);
+  accent-color: var(--primary);
   flex-shrink: 0;
 }
 .source-repo-link {
@@ -219,7 +219,7 @@
 .source-add-panel {
   border: 1px solid var(--line);
   border-radius: 10px;
-  background: #f8faf8;
+  background: var(--surface-soft);
   padding: 20px;
   margin-bottom: 24px;
 }
@@ -227,7 +227,7 @@
   display: flex;
   gap: 6px;
   padding: 4px;
-  background: #edf2ee;
+  background: var(--surface-muted);
   border-radius: 8px;
   width: fit-content;
   margin-bottom: 20px;
@@ -245,8 +245,8 @@
 }
 .source-mode-tabs button.active {
   background: #fff;
-  color: var(--green);
-  box-shadow: 0 2px 6px #1529230d;
+  color: var(--primary);
+  box-shadow: 0 2px 6px #3a24180d;
 }
 .source-owner-form {
   display: flex;
@@ -287,8 +287,8 @@
   overflow: hidden;
 }
 .source-owner-chips > div.active {
-  border-color: var(--green);
-  background: #edf7f1;
+  border-color: var(--primary);
+  background: var(--tint-soft);
 }
 .source-owner-chips button {
   display: flex;
@@ -341,10 +341,10 @@
 }
 .source-choice:hover,
 .source-choice.selected {
-  background: #f1f8f3;
+  background: var(--tint-soft);
 }
 .source-choice.known {
-  background: #f8f9f8;
+  background: var(--surface-soft);
   cursor: default;
 }
 .source-choice > span:first-of-type {
@@ -402,7 +402,7 @@
   border: 1px solid var(--line);
   border-radius: 9px;
   padding: 12px 14px;
-  background: #f8faf8;
+  background: var(--surface-soft);
   color: var(--ink);
   font: inherit;
   resize: vertical;
@@ -411,14 +411,14 @@
   transition: border-color .15s, box-shadow .15s, background-color .15s;
 }
 .add-sources textarea::placeholder {
-  color: #909b97;
+  color: var(--subtle);
 }
 .add-sources textarea:focus {
-  border-color: var(--green);
+  border-color: var(--primary);
   background: #fff;
-  outline: 2px solid #40a28b;
+  outline: 2px solid var(--focus);
   outline-offset: 2px;
-  box-shadow: 0 0 0 4px #13765f0d;
+  box-shadow: 0 0 0 4px #3a24180d;
 }
 .add-sources textarea:disabled {
   opacity: .55;
@@ -451,20 +451,20 @@
   width: 25px;
   height: 25px;
   border-radius: 50%;
-  background: #edf2ee;
+  background: var(--surface-muted);
   font-weight: 500;
 }
 .import-steps .active {
-  color: var(--green);
+  color: var(--primary);
   font-weight: 600;
 }
 .import-steps .active b {
   color: #fff;
-  background: var(--green);
+  background: var(--primary);
 }
 .import-steps .done b {
-  color: var(--green);
-  background: #e5f3e9;
+  color: var(--primary);
+  background: var(--tint-soft);
 }
 .source-pick-tools {
   display: flex;
@@ -504,7 +504,7 @@
   max-height: 230px;
 }
 .release-option.chosen {
-  background: #f0f8f3;
+  background: var(--tint-soft);
   border-radius: 6px;
 }
 .batch-progress {
@@ -517,7 +517,7 @@
   margin: 20px 0;
 }
 .batch-counts > div {
-  background: #f4f7f4;
+  background: var(--surface-soft);
   border: 1px solid var(--line);
   border-radius: 9px;
   padding: 16px;
@@ -536,7 +536,7 @@
 .batch-progress progress {
   width: 100%;
   height: 7px;
-  accent-color: var(--green);
+  accent-color: var(--primary);
 }
 .batch-items {
   margin-top: 15px;
@@ -589,7 +589,7 @@
   font-size: 12px;
 }
 .batch-history-row:hover {
-  background: #f4f8f4;
+  background: var(--surface-soft);
 }
 .batch-history-row > span:first-child {
   flex: 1;

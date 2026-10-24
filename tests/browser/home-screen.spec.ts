@@ -58,15 +58,15 @@ test('installed iOS mode hides the guide and restores player theme on exit/navig
   await page.getByRole('button', { name: '全螢幕', exact: true }).click();
   await expect(page.locator('.game-display-hint')).toHaveText('已使用沉浸模式，按右上角退出');
   await expect(page.locator('html')).toHaveClass(/game-expanded/);
-  await expect(page.locator('meta[name="theme-color"]')).toHaveAttribute('content', '#172b29');
+  await expect(page.locator('meta[name="theme-color"]')).toHaveAttribute('content', '#2a1e19');
   await page.getByRole('button', { name: '退出全螢幕', exact: true }).click();
   await expect(page.locator('html')).not.toHaveClass(/game-expanded/);
-  await expect(page.locator('meta[name="theme-color"]')).toHaveAttribute('content', '#f5f7f8');
+  await expect(page.locator('meta[name="theme-color"]')).toHaveAttribute('content', '#fbf6f0');
   await page.getByRole('button', { name: '全螢幕', exact: true }).click();
   await page.evaluate(() => { history.pushState(null, '', '/'); dispatchEvent(new PopStateEvent('popstate')); });
   await expect(page.locator('.game-shell')).toHaveCount(0);
   await expect(page.locator('html')).not.toHaveClass(/game-expanded/);
-  await expect(page.locator('meta[name="theme-color"]')).toHaveAttribute('content', '#f5f7f8');
+  await expect(page.locator('meta[name="theme-color"]')).toHaveAttribute('content', '#fbf6f0');
 });
 
 test('safe areas keep the iframe and exit control clear of notch and gesture regions', async ({ page }, testInfo) => {

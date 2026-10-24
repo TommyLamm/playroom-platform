@@ -3,6 +3,7 @@ import { ArrowLeft, ArrowRight, Monitor, Play, Smartphone } from 'lucide-react';
 import { LeaderboardPanel } from '../../career';
 import { FavoriteButton, LibraryError } from '../../player-library';
 import { useGame } from './use-game';
+import { DesktopOnlyNotice } from './desktop-only-notice';
 import { Spinner, Empty, ErrorMessage } from '../../ui/status';
 import { date } from '../../ui/date';
 
@@ -41,6 +42,7 @@ export function GameDetail() {
                   </span>
                 ))}
               </div>
+              <DesktopOnlyNotice game={game} />
               <Link className="button primary play-button" to={`/play/${game.id}`}>
                 <Play size={18} fill="currentColor" />
                 開始遊戲

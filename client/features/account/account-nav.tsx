@@ -1,10 +1,11 @@
-import { useContext, useEffect, useRef, useState } from 'react';
+import { useContext, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { ChevronDown, History, LayoutDashboard, LogOut, Settings2, UserRound, UserPlus, LogIn } from 'lucide-react';
 import { canAccessAdmin, roleLabels } from '../../../shared/account';
 import { api, ApiError } from '../../api';
 import { SessionContext } from '../../environment/session';
 import { useNotice } from '../../environment/notices';
+import { useDismissableDetails } from '../../ui/dismissable-details';
 
 export function AccountNav() {
   const { session, refresh } = useContext(SessionContext);
@@ -12,24 +13,7 @@ export function AccountNav() {
   const navigate = useNavigate();
   const [busy, setBusy] = useState(false);
   const menu = useRef<HTMLDetailsElement>(null);
-  useEffect(() => {
-    function closeOutside(event: PointerEvent) {
-      if (menu.current?.open && !menu.current.contains(event.target as Node))
-        menu.current.open = false;
-    }
-    function closeOnEscape(event: KeyboardEvent) {
-      if (event.key === 'Escape' && menu.current?.open) {
-        menu.current.open = false;
-        menu.current.querySelector('summary')?.focus();
-      }
-    }
-    document.addEventListener('pointerdown', closeOutside);
-    document.addEventListener('keydown', closeOnEscape);
-    return () => {
-      document.removeEventListener('pointerdown', closeOutside);
-      document.removeEventListener('keydown', closeOnEscape);
-    };
-  }, []);
+  useDismissableDetails(menu);
   if (!session) return <div className="account-nav account-placeholder" aria-busy="true" />;
   if (!session.authenticated)
     return (

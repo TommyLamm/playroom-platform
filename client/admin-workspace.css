@@ -1,16 +1,16 @@
 /* Workspace styles are scoped so the public lobby retains its appearance. */
-.page.admin-page { --muted: #657b73; --line: #e0e9e5; max-width: 1680px; padding: 28px 32px 40px; display: grid; grid-template-columns: 218px minmax(0, 1fr); gap: 28px; align-items: start; }
+.page.admin-page { max-width: 1680px; padding: 28px 32px 40px; display: grid; grid-template-columns: 218px minmax(0, 1fr); gap: 28px; align-items: start; }
 .admin-page [hidden] { display: none !important; }
-.admin-sidebar { position: sticky; top: 24px; background: #fff; border: 1px solid var(--line); border-radius: 18px; padding: 22px 12px 14px; box-shadow: 0 6px 24px #234b3c05; }
-.admin-sidebar-brand { display: flex; gap: 10px; align-items: center; color: var(--green); padding: 0 10px 22px; border-bottom: 1px solid var(--line); }
+.admin-sidebar { position: sticky; top: 24px; background: #fff; border: 1px solid var(--line); border-radius: 18px; padding: 22px 12px 14px; box-shadow: 0 6px 24px #3a241805; }
+.admin-sidebar-brand { display: flex; gap: 10px; align-items: center; color: var(--primary); padding: 0 10px 22px; border-bottom: 1px solid var(--line); }
 .admin-sidebar-brand strong { display: block; font-size: 15px; }
 .admin-sidebar-brand small { display: block; font-size: 8px; letter-spacing: 1px; margin-top: 5px; color: var(--muted); }
 .admin-navigation { display: flex; flex-direction: column; gap: 5px; }
 .admin-nav-group { font-size: 10px; color: var(--muted); font-weight: 600; padding: 22px 12px 7px; letter-spacing: 1px; }
 .admin-navigation button { width: 100%; display: flex; gap: 11px; align-items: center; min-height: 44px; padding: 11px 12px; border: 0; border-radius: 9px; background: transparent; font-size: 13px; text-align: left; color: var(--muted); }
 .admin-navigation button > span:first-of-type { flex: 1; }
-.admin-navigation button:hover { color: var(--green); background: #f4f8f6; }
-.admin-navigation button.active { background: #eaf5ef; color: var(--green); font-weight: 700; }
+.admin-navigation button:hover { color: var(--primary); background: var(--surface-soft); }
+.admin-navigation button.active { background: var(--tint-soft); color: var(--primary); font-weight: 700; }
 .admin-nav-count { padding: 2px 7px; border-radius: 6px; background: #fff; font-size: 11px; }
 .admin-sidebar-account { display: flex; gap: 10px; align-items: center; margin: 28px 6px 0; padding: 16px 4px 0; border-top: 1px solid var(--line); }
 .admin-sidebar-account strong, .admin-sidebar-account small { display: block; overflow-wrap: anywhere; }
@@ -26,7 +26,7 @@
 .admin-page .icon-button { border-radius: 9px; min-width: 36px; min-height: 36px; }
 .admin-page .button.small { min-height: 32px; padding: 7px 10px; font-size: 11px; }
 .admin-page input:not([type=checkbox]):not([type=radio]), .admin-page select { border-radius: 9px; font-size: 12px; padding: 10px 12px; border-color: var(--line); }
-.admin-page input[type=checkbox], .admin-page input[type=radio] { accent-color: var(--green); }
+.admin-page input[type=checkbox], .admin-page input[type=radio] { accent-color: var(--primary); }
 .admin-page .badge { font-size: 10px; padding: 4px 8px; border-radius: 6px; font-weight: 600; }
 .admin-page .stats-row { border: 0; padding: 0; gap: 12px; margin: 0 0 20px; }
 .admin-page .stats-row > div { background: #fff; border: 1px solid var(--line); border-radius: 12px; padding: 14px 18px; }
@@ -34,8 +34,8 @@
 .admin-page .stats-row strong { font-size: 23px; font-weight: 650; }
 .admin-page .stats-row svg, .admin-page .stats-row .stat-dot { right: 18px; bottom: 19px; }
 .admin-page .admin-mobile-nav { display: none; }
-.admin-page :is(.game-updates-panel, .admin-games-panel, .admin-accounts, .analytics, .platform-updates) { background: #fff; border: 1px solid var(--line); border-radius: 16px; padding: 22px; box-shadow: 0 4px 18px #234b3c04; }
-.admin-page .analytics-controls button, .admin-page .analytics-error button { border: 1px solid var(--line); padding: 10px 14px; border-radius: 9px; background: #fff; color: var(--green); font-size: 12px; }
+.admin-page :is(.game-updates-panel, .admin-games-panel, .admin-accounts, .analytics, .platform-updates) { background: #fff; border: 1px solid var(--line); border-radius: 16px; padding: 22px; box-shadow: 0 4px 18px #3a241804; }
+.admin-page .analytics-controls button, .admin-page .analytics-error button { border: 1px solid var(--line); padding: 10px 14px; border-radius: 9px; background: #fff; color: var(--primary); font-size: 12px; }
 .admin-page h2 { font-size: 17px; }
 .admin-page h3 { font-size: 14px; }
 .admin-panel-heading { display: flex; justify-content: space-between; gap: 12px; align-items: center; margin-bottom: 20px; }
@@ -49,13 +49,13 @@
 .admin-search > span { position: relative; display: block; }
 .admin-search svg { position: absolute; top: 12px; left: 12px; color: var(--muted); }
 .admin-page .admin-search input { padding-left: 36px !important; }
-.admin-page .admin-list-scroll { max-height: min(58vh, 680px); overflow: auto; border: 1px solid var(--line); border-radius: 10px; scrollbar-width: thin; scrollbar-color: #c3d6cd transparent; }
+.admin-page .admin-list-scroll { max-height: min(58vh, 680px); overflow: auto; border: 1px solid var(--line); border-radius: 10px; scrollbar-width: thin; scrollbar-color: var(--tint-line) transparent; }
 .admin-page table { border-collapse: separate; border-spacing: 0; width: 100%; font-size: 12px; }
-.admin-page th { background: #f6f9f7; padding: 12px 14px; color: var(--muted); font-size: 10px; font-weight: 600; border-bottom: 1px solid var(--line); }
+.admin-page th { background: var(--surface-soft); padding: 12px 14px; color: var(--muted); font-size: 10px; font-weight: 600; border-bottom: 1px solid var(--line); }
 .admin-list-scroll th { position: sticky; top: 0; z-index: 1; }
-.admin-page td { padding: 14px; border-bottom: 1px solid #edf2ef; vertical-align: middle; }
+.admin-page td { padding: 14px; border-bottom: 1px solid var(--line-soft); vertical-align: middle; }
 .admin-page tbody tr:last-child td { border-bottom: 0; }
-.admin-page tbody tr:hover { background: #f9fcfa; }
+.admin-page tbody tr:hover { background: var(--surface-soft); }
 .admin-page td small { display: block; font-size: 10px; color: var(--muted); margin-top: 5px; overflow-wrap: anywhere; }
 .admin-games-table { min-width: 680px; }
 .admin-game-cell { display: flex; gap: 12px; align-items: center; }
@@ -72,8 +72,8 @@
 .admin-page .update-filters label { font-size: 11px; flex: 1 1 135px; }
 .admin-page .update-filters label:first-child { flex: 2 1 220px; }
 .admin-page .update-filters input { width: 100%; }
-.admin-page .update-check-status { background: #f4f8f6; border-radius: 8px; padding: 9px 12px; font-size: 11px; margin-top: 12px; }
-.admin-page .update-bulk-actions { padding: 12px; border: 1px solid var(--line); background: #fafcfb; border-radius: 10px; gap: 8px; }
+.admin-page .update-check-status { background: var(--surface-soft); border-radius: 8px; padding: 9px 12px; font-size: 11px; margin-top: 12px; }
+.admin-page .update-bulk-actions { padding: 12px; border: 1px solid var(--line); background: var(--surface-soft); border-radius: 10px; gap: 8px; }
 .admin-page .update-bulk-actions > span { width: 100%; color: var(--muted); font-size: 11px; }
 .admin-page .update-row-actions { gap: 6px; }
 .admin-page .update-pagination { font-size: 11px; color: var(--muted); }
@@ -81,11 +81,11 @@
 .admin-page .game-update-table td { vertical-align: top; }
 .admin-page .game-update-table .update-error { color: var(--red); }
 .admin-page .analytics-panel, .admin-page .managed-account, .admin-page .account-role-guide article { border-color: var(--line); border-radius: 12px; background: #fff; }
-.admin-page .analytics-totals > * { background: #f3f8f5; border: 1px solid var(--line); border-radius: 12px; }
+.admin-page .analytics-totals > * { background: var(--surface-soft); border: 1px solid var(--line); border-radius: 12px; }
 .admin-page :is(.source-error, .analytics-error, .job-error) { font-size: 12px; }
 .admin-page .table-scroll:not(.admin-list-scroll) { max-height: 65vh; }
-.admin-page .dialog { border: 1px solid var(--line); border-radius: 16px; box-shadow: 0 24px 80px #173d3226; }
-.admin-page .dialog::backdrop { background: #18342d55; backdrop-filter: blur(3px); }
+.admin-page .dialog { border: 1px solid var(--line); border-radius: 16px; box-shadow: 0 24px 80px #3a241826; }
+.admin-page .dialog::backdrop { background: #2a1e1955; backdrop-filter: blur(3px); }
 .admin-page .dialog.drawer { position: fixed; inset: 0 0 0 auto; width: min(580px, 100vw); height: 100dvh; max-height: 100dvh; max-width: 100vw; margin: 0; border-radius: 18px 0 0 18px; padding: 24px; overflow-y: auto; }
 .admin-page .drawer .dialog-heading { position: sticky; top: -24px; background: #fff; z-index: 2; padding: 20px 0 14px; margin-top: -20px; border-bottom: 1px solid var(--line); }
 .game-version-panel { min-width: 0; }
@@ -98,8 +98,8 @@
 .version-picker td { font-size: 11px; }
 .version-picker label { display: flex; align-items: center; gap: 8px; overflow-wrap: anywhere; }
 .version-picker input[type=radio] { width: 16px; margin: 0; }
-.version-picker tr.selected { background: #eff8f3; }
-.selected-version { margin-top: 22px; padding: 18px; background: #f5f9f7; border: 1px solid var(--line); border-radius: 12px; }
+.version-picker tr.selected { background: var(--tint-soft); }
+.selected-version { margin-top: 22px; padding: 18px; background: var(--surface-soft); border: 1px solid var(--line); border-radius: 12px; }
 .selected-version h3 { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .selected-version p { font-size: 11px; color: var(--muted); margin: 10px 0 16px; }
 .selected-version .version-actions { justify-content: flex-start; flex-wrap: wrap; }
@@ -146,7 +146,7 @@
   .admin-page .game-update-table tr { border: 1px solid var(--line); border-radius: 12px; margin-bottom: 12px; }
   .admin-page .game-update-table td { padding: 10px 10px 10px 104px; }
   .admin-page .game-update-table td::before { left: 10px; top: 10px; font-size: 10px; }
-  .admin-page .game-update-table td:last-child { background: #f6f9f7; border-radius: 0 0 12px 12px; }
+  .admin-page .game-update-table td:last-child { background: var(--surface-soft); border-radius: 0 0 12px 12px; }
   .admin-page .update-bulk-actions .button { min-height: 40px; }
   .admin-page .admin-pagination { gap: 8px; }
   .admin-page .admin-pagination > span { width: 100%; }

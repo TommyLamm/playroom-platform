@@ -2,6 +2,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
 import { useGame } from './use-game';
 import { GameFrame } from './game-frame';
+import { DesktopOnlyNotice } from './desktop-only-notice';
 import { Spinner, Empty, ErrorMessage } from '../../ui/status';
 
 export function PlayPage() {
@@ -21,6 +22,7 @@ export function PlayPage() {
         <Spinner />
       ) : (
         <>
+          <DesktopOnlyNotice game={game} />
           <GameFrame
             url={game.playUrl}
             title={game.name}
@@ -29,8 +31,10 @@ export function PlayPage() {
           />
           <div className="play-caption">
             <p>{game.instructions}</p>
-            <span>v{game.version}</span>
-            <Link to={`/games/${game.id}#leaderboard`}>查看排行榜</Link>
+            <div className="play-caption-meta">
+              <span>v{game.version}</span>
+              {game.leaderboard && <Link to={`/games/${game.id}#leaderboard`}>查看排行榜</Link>}
+            </div>
           </div>
         </>
       )}

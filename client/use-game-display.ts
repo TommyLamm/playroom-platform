@@ -94,7 +94,7 @@ export function useGameDisplay(
     const theme = document.querySelector('meta[name="theme-color"]');
     const previousTheme = theme?.getAttribute('content');
     root.classList.add('game-expanded');
-    theme?.setAttribute('content', '#172b29');
+    theme?.setAttribute('content', '#2a1e19');
     return () => {
       root.classList.remove('game-expanded');
       if (previousTheme != null) theme?.setAttribute('content', previousTheme);
