@@ -58,14 +58,14 @@ test('tool archive, standalone CLI and game packing are reproducible with no ins
   const temp = await fs.mkdtemp(path.join(os.tmpdir(), 'playroom-tools-'));
   t.after(() => fs.rm(temp, { recursive: true, force: true }));
   await run(process.execPath, ['--import', 'tsx', 'scripts/build-game-tools.ts']);
-  const archive = 'artifacts/playroom-game-tools-1.1.0.zip';
+  const archive = 'artifacts/playroom-game-tools-1.2.0.zip';
   const hash = () => fs.readFile(archive).then((data) => createHash('sha256').update(data).digest('hex'));
   const first = await hash();
   await run(process.execPath, ['--import', 'tsx', 'scripts/build-game-tools.ts']);
   assert.equal(await hash(), first);
   const lock = JSON.parse(await fs.readFile('templates/game-tools.lock.json', 'utf8'));
   assert.equal(lock.sha256, first);
-  const root = 'artifacts/game-tools/1.1.0';
+  const root = 'artifacts/game-tools/1.2.0';
   for (const name of ['pack-game.mjs', 'validate-game.mjs']) await fs.copyFile(path.join(root, name), path.join(temp, name));
   await fs.cp('examples/starter', path.join(temp, 'game'), { recursive: true });
   await run(process.execPath, [path.join(temp, 'pack-game.mjs'), path.join(temp, 'game'), path.join(temp, 'one.zip')], { cwd: temp, env: { ...process.env, TZ: 'Asia/Hong_Kong' } });
@@ -73,5 +73,5 @@ test('tool archive, standalone CLI and game packing are reproducible with no ins
   await run(process.execPath, [path.join(temp, 'pack-game.mjs'), path.join(temp, 'game'), path.join(temp, 'two.zip')], { cwd: temp, env: { ...process.env, TZ: 'Pacific/Honolulu' } });
   assert.deepEqual(await fs.readFile(path.join(temp, 'one.zip')), await fs.readFile(path.join(temp, 'two.zip')));
   const result = await run(process.execPath, [path.join(temp, 'validate-game.mjs'), path.join(temp, 'one.zip')], { cwd: temp });
-  assert.match(result.stdout, /tools 1.1.0/);
+  assert.match(result.stdout, /tools 1.2.0/);
 });

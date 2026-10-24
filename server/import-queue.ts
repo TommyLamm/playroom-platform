@@ -86,7 +86,7 @@ export class ImportQueue {
     try {
       if (this.closing) throw new AppError(503, '平台已關閉，請重新匯入');
       this.controller = new AbortController();
-      const signal = AbortSignal.any([this.controller.signal, AbortSignal.timeout(120000)]);
+      const signal = AbortSignal.any([this.controller.signal, AbortSignal.timeout(20 * 60 * 1000)]);
       this.update(id, { status: 'running', phase: 'resolving' });
       const { release, asset } = await this.github.resolve(fullName, releaseId);
       signal.throwIfAborted();

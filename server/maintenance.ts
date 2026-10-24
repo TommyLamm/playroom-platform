@@ -10,6 +10,7 @@ import { fileHash, installVersion, publish } from './library.js';
 import { manifestSchema, isSafePath } from '../shared/manifest.js';
 import type { Config } from './config.js';
 import { AppError } from './errors.js';
+import { gameArchiveLimits } from './archive.js';
 import { directoryInventory, safeDataPath } from './version-files.js';
 import { recordBackupStart, recordBackupEnd, normalizeBackupSnapshot } from './operational-state.js';
 
@@ -72,7 +73,7 @@ export async function backup(dataDir: string, destination: string) {
           throw new Error('Version metadata is inconsistent');
         const relative = path.join('games', manifest.id, manifest.version);
         const sourceDirectory = await safeDataPath(dataDir, relative.split(path.sep).join('/'));
-        const limits = { maxFiles: 10000, maxExpandedBytes: 256 * 1024 * 1024 };
+        const limits = gameArchiveLimits;
         const before = await directoryInventory(sourceDirectory, limits);
         if (snapshot.prepare("SELECT 1 FROM sqlite_master WHERE name='installations' AND type='table'").get()) {
           const journals = snapshot.prepare('SELECT files FROM installations WHERE game_id=? AND version=?').all(manifest.id, manifest.version) as { files: string }[];

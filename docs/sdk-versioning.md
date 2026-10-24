@@ -1,6 +1,6 @@
 # SDK、協定與工具版本
 
-版本常數來自 `shared/versions.ts`。SDK 1.1.0、protocol 1、Manifest schema 2、game tools 1.1.0 是不同用途；平台 package version 或 SQLite user_version 均不能替代它們。
+版本常數來自 `shared/versions.ts`。SDK 1.1.0、protocol 1、Manifest schema 2、game tools 1.2.0 是不同用途；平台 package version 或 SQLite user_version 均不能替代它們。
 
 | 使用組合 | 支援行為 |
 | --- | --- |
@@ -29,11 +29,11 @@ HTTP 錯誤保留中文字 `error` 與 status，加 `code`；SDK Error.code 繼�
 
 正式 SDK 原始碼在 `sdk/index.ts`。執行 `npm run sdk:build` 產出相同 JS/d.ts 至 `examples/starter` 與 `artifacts/sdk/1.1.0`；`npm run sdk:check` 驗證提交的生成檔未漂移，CI 亦執行。遊戲僅複製 JS/d.ts，以相對 ES module 匯入，不需安裝平台 runtime。
 
-平台 checkout 先 `npm ci` 固定依賴，再執行 `npm run sdk:build`、`npm run game:schema`、`npm run game:tools`，產出 `artifacts/playroom-game-tools-1.1.0.zip`、SHA-256 sidecar、`templates/game-tools.lock.json`。工具 ZIP 包含自包含 Node 24 pack/validate CLI、SDK、Schema 與 metadata；不需 npm runtime 依賴。metadata 記錄工具／SDK／協定／Schema 版本、來源與 lockfile 雜湊及各檔 SHA-256。打包使用固定檔案順序、時間及權限，相同內容的 ZIP 不受檔案 mtime 影響。
+平台 checkout 先 `npm ci` 固定依賴，再執行 `npm run sdk:build`、`npm run game:schema`、`npm run game:tools`，產出 `artifacts/playroom-game-tools-1.2.0.zip`、SHA-256 sidecar、`templates/game-tools.lock.json`。工具 ZIP 包含自包含 Node 24 pack/validate CLI、SDK、Schema 與 metadata；不需 npm runtime 依賴。metadata 記錄工具／SDK／協定／Schema 版本、來源與 lockfile 雜湊及各檔 SHA-256。打包使用固定檔案順序、時間及權限，相同內容的 ZIP 不受檔案 mtime 影響。
 
-第一次接入工具需要在平台 checkout 本地產生經驗證產物，將工具 ZIP 複製至遊戲 repo `.playroom/tools/playroom-game-tools-1.1.0.zip`，lock 複製至 `.playroom/game-tools.lock.json`，兩者一起 commit；工具 ZIP 放成品目錄之外。workflow 使用已固定工具，驗證整包 SHA-256、metadata 版本與逐檔雜湊，記錄版本及 SHA-256，通過後才發布 game.zip。範本不依賴尚未發布的遠端資產。更新平台 main 不改變遊戲 repo 固定的驗證器；升級工具需以版本＋ZIP＋lock 的明確 commit 進行。
+第一次接入工具需要在平台 checkout 本地產生經驗證產物，將工具 ZIP 複製至遊戲 repo `.playroom/tools/playroom-game-tools-1.2.0.zip`，lock 複製至 `.playroom/game-tools.lock.json`，兩者一起 commit；工具 ZIP 放成品目錄之外。workflow 使用已固定工具，驗證整包 SHA-256、metadata 版本與逐檔雜湊，記錄版本及 SHA-256，通過後才發布 game.zip。範本不依賴尚未發布的遠端資產。更新平台 main 不改變遊戲 repo 固定的驗證器；升級工具需以版本＋ZIP＋lock 的明確 commit 進行。
 
-平台管理者可另將已驗證工具 ZIP、SHA-256 與 SDK 發布成 `game-tools-v1.1.0` 不可覆寫 Release。首次公開 Release 尚需管理者明確發布；本輪本地生成不代表遠端已存在。已公開的工具版本不可重建後更換 checksum；工具規則變更須增加 GAME_TOOLS_VERSION，再生成及發布新版本。最新開發規格的連結始終讀 main，與執行工具固定版本分開。
+平台管理者可另將已驗證工具 ZIP、SHA-256 與 SDK 發布成 `game-tools-v1.2.0` 不可覆寫 Release。首次公開 Release 尚需管理者明確發布；本輪本地生成不代表遠端已存在。已公開的工具版本不可重建後更換 checksum；工具規則變更須增加 GAME_TOOLS_VERSION，再生成及發布新版本。最新開發規格的連結始終讀 main，與執行工具固定版本分開。
 
 ## 升級方式
 

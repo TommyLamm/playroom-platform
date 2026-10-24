@@ -13,7 +13,7 @@
 | 路徑 | 所有自有資源使用相對路徑；路由使用 hash；入口能在版本子目錄及預覽子目錄運作 |
 | 帳號 | 遊戲不能取得平台 Cookie 或直接呼叫帳號／管理 API；成績透過選填的 Playroom SDK 回報，訪客也必須可玩 |
 | 裝置 | `devices` 必須如實宣告；標示 `mobile` 的遊戲必須可用觸控完成主要玩法 |
-| 大小 | ZIP ≤ 64 MiB、解壓 ≤ 256 MiB、entries ≤ 10,000；封面 ≤ 5 MiB |
+| 大小 | ZIP ≤ 512 MiB、解壓 ≤ 2 GiB、entries ≤ 50,000；封面 ≤ 5 MiB |
 | 行為 | 不跳出 iframe、不開 popup、不提交表單；音效與全螢幕由玩家操作觸發 |
 
 欄位結構以 [Manifest Schema](../templates/game.schema.json) 為準；它由 `shared/manifest.ts` 的輸入格式產生，平台修改欄位後執行 `npm run game:schema`。可使用編輯器的外部 schema mapping，不在 `game.json` 加 `$schema` 或未知欄位。Schema 的 `default` 是說明，預設值由平台驗證器套用；分數上下限關係、檔案存在、路徑安全及 ZIP 限制仍須執行 `npm run game:validate`。

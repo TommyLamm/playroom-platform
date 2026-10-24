@@ -9,6 +9,13 @@ import { AppError } from './errors.js';
 
 export type ArchiveLimits = { maxZipBytes: number; maxExpandedBytes: number; maxFiles: number };
 
+/** Shared by the platform importer, backups and the distributed validate-game tool. */
+export const gameArchiveLimits: ArchiveLimits = {
+  maxZipBytes: 512 * 1024 * 1024,
+  maxExpandedBytes: 2 * 1024 * 1024 * 1024,
+  maxFiles: 50000,
+};
+
 export async function validateDirectory(root: string): Promise<GameManifest> {
   const manifestFile = path.join(root, 'game.json');
   const stat = await fsp.stat(manifestFile).catch(() => null);

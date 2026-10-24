@@ -24,12 +24,12 @@ test('release workflow verifies a pinned archive and rejects changed checksum or
   const envFile = path.join(temporary, 'github-env');
   const env = { ...process.env, GITHUB_ENV: envFile };
   await run(process.execPath, ['--input-type=module', '--eval', checks[1]], { env, cwd: temporary });
-  assert.match(await fs.readFile(envFile, 'utf8'), /TOOLS_VERSION=1.1.0/);
+  assert.match(await fs.readFile(envFile, 'utf8'), /TOOLS_VERSION=1.2.0/);
   await fs.writeFile(lockFile, JSON.stringify({ ...lock, sha256: '0'.repeat(64) }));
   await assert.rejects(run(process.execPath, ['--input-type=module', '--eval', checks[1]], { env, cwd: temporary }), /checksum differs/);
   await fs.writeFile(lockFile, JSON.stringify({ ...lock, archive: '../outside.zip' }));
   await assert.rejects(run(process.execPath, ['--input-type=module', '--eval', checks[1]], { env, cwd: temporary }), /archive path/);
-  const verified = { ...env, PLATFORM_DIR: path.resolve('artifacts/game-tools/1.1.0'), TOOLS_VERSION: '1.1.0', TOOLS_SHA256: lock.sha256 };
+  const verified = { ...env, PLATFORM_DIR: path.resolve('artifacts/game-tools/1.2.0'), TOOLS_VERSION: '1.2.0', TOOLS_SHA256: lock.sha256 };
   await run(process.execPath, ['--input-type=module', '--eval', checks[2]], { env: verified });
   await assert.rejects(run(process.execPath, ['--input-type=module', '--eval', checks[2]], { env: { ...verified, TOOLS_VERSION: '9.0.0' } }), /metadata version differs/);
 });

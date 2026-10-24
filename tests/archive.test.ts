@@ -3,14 +3,10 @@ import assert from 'node:assert/strict';
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
-import { extractArchive } from '../server/archive.js';
+import { extractArchive, gameArchiveLimits } from '../server/archive.js';
 import { makeZip, testManifest } from './helpers.js';
 
-const limits = {
-  maxZipBytes: 64 * 1024 * 1024,
-  maxExpandedBytes: 256 * 1024 * 1024,
-  maxFiles: 10000,
-};
+const limits = gameArchiveLimits;
 test('ZIP validation rejects damaged, unsafe, oversized and incomplete packages', async (t) => {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), 'playroom-archive-'));
   t.after(() => fs.rm(root, { recursive: true, force: true }));

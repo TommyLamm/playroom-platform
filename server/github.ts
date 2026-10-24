@@ -167,7 +167,7 @@ export function githubSource(githubToken: string, fetcher: typeof fetch = fetch)
       return { release: publicRelease(raw), asset };
     },
     async download(asset, destination, maxBytes, signal) {
-      if (asset.size > maxBytes) throw new AppError(400, '遊戲包超過 64 MB 上限');
+      if (asset.size > maxBytes) throw new AppError(400, `遊戲包超過 ${maxBytes / 1024 / 1024} MiB 上限`);
       let url = new URL(asset.browser_download_url);
       let response: Response | undefined;
       for (let redirects = 0; redirects < 5; redirects++) {

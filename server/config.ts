@@ -1,5 +1,6 @@
 import path from 'node:path';
 import { z } from 'zod';
+import { gameArchiveLimits } from './archive.js';
 
 function origin(value: string) {
   const url = new URL(value);
@@ -29,9 +30,7 @@ export function getConfig(overrides: Partial<Config> = {}): Config {
     updaterUrl: process.env.UPDATER_URL || '',
     updaterToken: process.env.UPDATER_TOKEN || '',
     commit: process.env.APP_COMMIT || 'development',
-    maxZipBytes: 64 * 1024 * 1024,
-    maxExpandedBytes: 256 * 1024 * 1024,
-    maxFiles: 10000,
+    ...gameArchiveLimits,
     production,
     clientDir: path.resolve('dist/client'),
     ...overrides,
