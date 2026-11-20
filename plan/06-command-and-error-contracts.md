@@ -39,7 +39,7 @@
 
 ## 2026-10-11 交付
 
-操作盤點、成功／錯誤／重試契約見 `docs/command-contracts.md`；schemas 與 DTO 集中於 shared/commands.ts，存檔維持 shared/cloud-save.ts 的 revision／requestId 規則。單款與批量統一使用 server/game-commands.ts，發布／下架／確認及角色變更於 immediate 交易內重新檢查操作者。低層 library.publish 保留給維護 fixture，管理 HTTP 不繞過操作服務。
+操作盤點、成功／錯誤／重試契約見 `docs/game-dev/command-contracts.md`；schemas 與 DTO 集中於 shared/commands.ts，存檔維持 shared/cloud-save.ts 的 revision／requestId 規則。單款與批量統一使用 server/game-commands.ts，發布／下架／確認及角色變更於 immediate 交易內重新檢查操作者。低層 library.publish 保留給維護 fixture，管理 HTTP 不繞過操作服務。
 
 單款管理 API 必填 expectedActiveVersion／expectedPublished，缺少為 400 VALIDATION_ERROR；兩名管理者發布競爭、發布／下架雙向競爭均回覆 STATE_CONFLICT，不更動失敗款。目標已上架時 skipped；下架 skipped 仍要求 activeVersion 未變。單款歷史回退與批量不可降版的刻意差異、確認／撤銷和重複確認語義已文件化。
 

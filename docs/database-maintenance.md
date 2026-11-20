@@ -54,7 +54,7 @@ v8 保留 `foreign_keys=OFF` → transaction 內複製 users 與保留 sqlite_se
 
 02 新增 migration 011（cloud-save-snapshots）：cloud_saves 增加 nullable source_snapshot_id 以保存最近恢復請求身份（來源快照淘汰後仍能重試），及 (game_id,format_version) 索引；cloud_save_snapshots 保存原存檔資料／版本／時間／請求資訊、captured_at 與 reason。主鍵 id 自增，外鍵 user_id→users、game_id→games，(user_id,game_id,revision) 唯一，CHECK revision>0、reason∈migration/restore，索引 (user_id,game_id,id DESC)。source_snapshot_id 不設快照外鍵，以便有界淘汰。migration 011 的 DDL 與 user_version 同交易，既有存檔原值不变、無初始快照。v10 歷史清單及 fixture 保持不變。
 
-目前支援 v1–v11 備份，v11 的完整 SQLite 快照包括私人進度及遷移／恢復快照；升級前備份可還原至新目錄再升級。快照保留最新 20 份／帳號／遊戲，容量統計與本人恢復程序見[存檔相容性](save-compatibility.md)。
+目前支援 v1–v11 備份，v11 的完整 SQLite 快照包括私人進度及遷移／恢復快照；升級前備份可還原至新目錄再升級。快照保留最新 20 份／帳號／遊戲，容量統計與本人恢復程序見[存檔相容性](game-dev/save-compatibility.md)。
 
 ## 驗證證據
 
@@ -69,4 +69,4 @@ v8 保留 `foreign_keys=OFF` → transaction 內複製 users 與保留 sqlite_se
 
 Migration 012 新增 installations：UUID 主鍵；nullable job_id 唯一且外鍵至 import_jobs；game_id／version、staging_path、Manifest／來源／檔案雜湊清單 JSON、state／reason／時間。state CHECK 限 prepared／registered／completed／quarantining／quarantined／blocked，索引 (game_id,version)。未登記成品也需記錄意圖，因此 game_id／version 不設版本外鍵。DDL 及 user_version 同交易，既有資料不變；001–011、v10 歷史盤點及凍結 fixture 不改寫。
 
-目前支援 v1–v12 備份；v12 快照只保留已登記版本的完成日誌，不帶 staging 或隔離區，還原不依賴兩者。操作與保留規則見[匯入恢復](import-recovery.md)。
+目前支援 v1–v12 備份；v12 快照只保留已登記版本的完成日誌，不帶 staging 或隔離區，還原不依賴兩者。操作與保留規則見[匯入恢復](game-dev/import-recovery.md)。

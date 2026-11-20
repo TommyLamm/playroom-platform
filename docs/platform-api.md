@@ -1,10 +1,10 @@
 # 平台 API 與管理後台參考
 
-本文件供平台開發與管理使用；獨立遊戲的必要接入要求見 [遊戲開發與發布標準](game-development.md)。遊戲只透過 SDK 提交帳號成績與進度，不直接呼叫下列 API。
+本文件供平台開發與管理使用；獨立遊戲的必要接入要求見 [遊戲開發與發布標準](game-dev/game-development.md)。遊戲只透過 SDK 提交帳號成績與進度，不直接呼叫下列 API。
 
 ## 平台 API 摘要
 
-所有 JSON API 位於平台來源的 `/api/v1`。錯誤格式是 `{ "error": "說明", "code": "STATE_CONFLICT", "details"?: {...} }`，保留 HTTP status 與原文字；操作、重試及機器碼見[共用操作契約](command-contracts.md)。遊戲來源只提供靜態遊戲資源。
+所有 JSON API 位於平台來源的 `/api/v1`。錯誤格式是 `{ "error": "說明", "code": "STATE_CONFLICT", "details"?: {...} }`，保留 HTTP status 與原文字；操作、重試及機器碼見[共用操作契約](game-dev/command-contracts.md)。遊戲來源只提供靜態遊戲資源。
 
 後台角色分為 `admin`（平台管理員）、`game_manager`（遊戲管理者）、`analyst`（數據分析員）。普通 `player` 不可進入後台，公開註冊只建立玩家。遊戲管理者可管理全部遊戲的來源、匯入、預覽、發布與下架；分析員只讀彙總統計。帳號權限、訪客個人明細、磁碟／備份狀態及平台更新只供平台管理員。角色由平台管理員在帳號權限頁指派，API 每次讀取目前角色；角色變更不改變私人逐局成績僅供本人的限制。遊戲不應取得管理角色或直接呼叫管理 API。
 
@@ -100,4 +100,4 @@
 
 平台管理員或遊戲管理者可在「管理後台 → 遊戲更新 → 加入來源」保存多位開發者的 GitHub 帳號／組織，探索公開 repositories 並勾選批量加入，或一次貼上多行 URL／owner/repo；來源列表可搜尋、按帳號及狀態篩選，封存不下架或刪除遊戲。從來源列表多選匯入，或由「匯入遊戲」搜尋選取來源，再確認各款 Release 並等待驗證完成。每批最多 100 款，預設最新有效正式版，預發布需手動選擇；已匯入 Release 跳過、相同等待中任務沿用。批次進度可重新開啟，失敗或重啟中斷可批量重試，匯入完成不會自動上架。
 
-02 存檔格式檢查及恢復已提供：SAVE_FORMAT_INCOMPATIBLE、SAVE_REVISION_CONFLICT、REQUEST_ID_REUSED 分別表示格式、revision 與請求識別衝突，原中文字 error／HTTP status 保留。版本詳情新增 saveCompatibility（status、total、affected、formats），只包含格式與筆數；單款／批量發布在交易內拒絕已知不相容存檔。營運 storage 新增 snapshotCount 與 snapshotDataBytes。schema v11 新增快照及最近恢復識別，保留最新 20 份／帳號／遊戲；[完整契約與本人恢復程序](save-compatibility.md)。
+02 存檔格式檢查及恢復已提供：SAVE_FORMAT_INCOMPATIBLE、SAVE_REVISION_CONFLICT、REQUEST_ID_REUSED 分別表示格式、revision 與請求識別衝突，原中文字 error／HTTP status 保留。版本詳情新增 saveCompatibility（status、total、affected、formats），只包含格式與筆數；單款／批量發布在交易內拒絕已知不相容存檔。營運 storage 新增 snapshotCount 與 snapshotDataBytes。schema v11 新增快照及最近恢復識別，保留最新 20 份／帳號／遊戲；[完整契約與本人恢復程序](game-dev/save-compatibility.md)。

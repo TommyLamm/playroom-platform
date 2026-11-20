@@ -49,7 +49,7 @@
 
 ## 2026-10-11 最新進度
 
-已完成 01、02、03、04、05、06、07。07 本次交付 schema v12 安裝日誌、啟動恢復、隔離、只讀診斷／指定 ID 修復、版本資源候選與保留報告，以及一致版本備份。匯入與恢復不自動發布，版本不可覆寫；所有 metadata 保留，沒有自動刪除。詳見 [07 交付紀錄](07-import-recovery.md) 與 [匯入恢復指南](../docs/import-recovery.md)。操作文件及遊戲 Agent 範本同步，main 規格連結保留。
+已完成 01、02、03、04、05、06、07。07 本次交付 schema v12 安裝日誌、啟動恢復、隔離、只讀診斷／指定 ID 修復、版本資源候選與保留報告，以及一致版本備份。匯入與恢復不自動發布，版本不可覆寫；所有 metadata 保留，沒有自動刪除。詳見 [07 交付紀錄](07-import-recovery.md) 與 [匯入恢復指南](../docs/game-dev/import-recovery.md)。操作文件及遊戲 Agent 範本同步，main 規格連結保留。
 
 本機完整單元／整合測試 193/193、typecheck、build、SDK 生成檔與模組邊界 129 檔通過；完整 Chrome desktop/mobile E2E 70 通過／4 裝置限定跳過。遠端核准隔離目錄 /root/playroom-validation-06.vyNNQo/validation-07 的 Docker build、Linux Node 24 typecheck／build／193 測試、SDK／邊界、完整 Chromium E2E 70 通過／4 裝置限定跳過及 runtime 診斷／版本報告／備份／還原／重啟 smoke 均通過。既有 CI 的命令已重現，未觸發 GitHub Actions。證據見 output/verification-07 與對應 logs。
 

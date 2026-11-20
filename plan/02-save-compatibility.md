@@ -39,7 +39,7 @@
 
 - 格式契約與舊版相容策略：沿用 01 的 schema 2 cloudSave 宣告；GET 可指定已公開 version，正式橋接固定使用 iframe 版本。伺服器檢查現有格式／writeFormat／目前上架版本可讀範圍；未知版本不虛構相容性。SDK 廣告 saveFormats，數字錯誤碼保留，新增 HTTP code/details 讓格式／revision／requestId 衝突能分辨。
 - migration 011 新增 cloud_save_snapshots、最近恢復身份欄位及格式彙總索引；已發布 001–010 與凍結 v10 結構清單未改動。每帳號／遊戲最新 20 份，格式改變及本人恢復先保存被取代資料；新增、淘汰、保存同交易。快照或後續保存失敗均回滾，原 ID 重試不增加 revision／快照。
-- 本人 GET snapshots／POST restore API 需登入、Origin／CSRF 與目前 revision，恢復 revision 加 1，遊戲來源版本保留；來源快照在本次恢復被淘汰後仍能重試。沒有管理員代读／代恢復權限，也沒有遊戲 SDK 恢復方法。程序、淘汰與備份限制見 docs/save-compatibility.md。
+- 本人 GET snapshots／POST restore API 需登入、Origin／CSRF 與目前 revision，恢復 revision 加 1，遊戲來源版本保留；來源快照在本次恢復被淘汰後仍能重試。沒有管理員代读／代恢復權限，也沒有遊戲 SDK 恢復方法。程序、淘汰與備份限制見 docs/game-dev/save-compatibility.md。
 - 底層 library.publish 在交易內檢查所有現有存檔；单款、批量與維護發布共用，已知不相容拒絕。後台按需版本詳情只回傳格式／筆數彙總，顯示 compatible／incompatible／unknown 及受影響数；不讀出玩家資料。
 - SQLite 完整備份涵蓋快照；v1–v11 備份支援還原與升級。營運統計增加 snapshotCount／snapshotDataBytes，後台顯示快照數與 data 用量，實際平台用量也包含 SQLite／WAL。
 - 同步遊戲開發指南、SDK 指引／型別註解及生成檔、API、資料庫維護、模組責任文件、共用契約與 templates/game-agent-template.md；新增線上存檔規格連結保持 main，沒有固定 SHA。

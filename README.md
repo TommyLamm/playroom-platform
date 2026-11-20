@@ -106,7 +106,7 @@ make ota-update COMMIT=<上一步的完整 latest.commit>
 make ota-status
 ```
 
-重建映像與替換容器時沿用資料 volume，但更新切換會短暫中斷，並非零停機。停止服務使用 `make stop-server`，不要用 `docker compose down -v` 刪除資料。還原仍按下方「備份與還原」流程，先停止 app 並還原到新 volume；不提供覆寫現有 DB 的 shortcut。Makefile 沿用現有 npm scripts，遊戲打包／驗證及 Release workflow 仍依[遊戲開發指南](docs/game-development.md)操作。
+重建映像與替換容器時沿用資料 volume，但更新切換會短暫中斷，並非零停機。停止服務使用 `make stop-server`，不要用 `docker compose down -v` 刪除資料。還原仍按下方「備份與還原」流程，先停止 app 並還原到新 volume；不提供覆寫現有 DB 的 shortcut。Makefile 沿用現有 npm scripts，遊戲打包／驗證及 Release workflow 仍依[遊戲開發指南](docs/game-dev/game-development.md)操作。
 
 ## 管理工作台
 
@@ -186,7 +186,7 @@ docker compose run --rm --no-deps app npm run demo:seed
 
 在版本選單選擇舊的已發布版本，再按「回退到此版本」，即可切換大廳顯示的版本。遊戲保持上架時，過往已發布版本的資源仍可存取，讓已開啟的遊戲繼續運行；下架會封鎖該遊戲所有公開版本的新資源請求。已經載入記憶體的遊戲無法遠端撤回。
 
-完整接入規格見 [遊戲開發指南](docs/game-development.md)。
+接入規格、Agent 範本與發布工具見[遊戲開發文件](docs/game-dev/README.md)。
 
 管理員預覽提供 SDK 診斷面板，顯示連線、遊戲版本、榜單規則及最近 80 筆局次／成績／錯誤事件，可清除事件或重新開始。支援診斷的新 SDK 在預覽建立記憶體內模擬局次並驗證成績，完全不寫入遊玩記錄、生涯或排行榜；舊 SDK 會提示更新，沒有 SDK 時顯示未連線。診斷不能代替實際玩法與裝置驗收。
 
@@ -245,7 +245,7 @@ npm start
 - 所有遊戲共用遊戲來源，可共享該來源的瀏覽器儲存空間；這不是遊戲之間的安全隔離。請為各遊戲的 localStorage keys 加上自己的 ID。
 - 正式版沒有自動刪除歷史版本。需監控主機剩餘磁碟空間，並定期備份。健康檢查為 `/api/v1/health`；服務日誌可用 `docker compose logs --tail=100 app` 查看。
 
-匯入中斷或出現未登記目錄時，先停止 app，保存資料，再執行 `npm run imports:diagnose` 查看只讀報告；使用報告中的指定 ID 執行 `imports:repair`。`npm run versions:report` 只列資源候選、大小與阻擋原因，不刪除資源或版本記錄。不要手動刪除版本目錄。完整核對表、隔離、資料目錄鎖及版本引用規則見 [匯入恢復指南](docs/import-recovery.md)。
+匯入中斷或出現未登記目錄時，先停止 app，保存資料，再執行 `npm run imports:diagnose` 查看只讀報告；使用報告中的指定 ID 執行 `imports:repair`。`npm run versions:report` 只列資源候選、大小與阻擋原因，不刪除資源或版本記錄。不要手動刪除版本目錄。完整核對表、隔離、資料目錄鎖及版本引用規則見 [匯入恢復指南](docs/game-dev/import-recovery.md)。
 
 ## 檢查與專案結構
 
@@ -276,6 +276,6 @@ E2E 使用臨時資料庫與測試用 GitHub adapter，不會更動本機平台�
 | `templates/`        | 開發者可複用的 GitHub Actions workflow    |
 | `tests/`            | 後端整合、安全邊界與 Playwright 測試      |
 
-遊戲 SDK 與榜單設定見 [遊戲開發指南](docs/game-development.md)，平台 API 與後台細節見 [平台參考](docs/platform-api.md)。生涯摘要依帳號公開範圍設定顯示，排行榜仍公開玩家名稱、最佳成績與排名；訪客及管理預覽不產生帳號記錄。活躍時間以大廳前景焦點與 15 秒心跳估計，中斷超過 30 秒不補算；同時在多裝置遊玩可能重疊計時。排行榜用於休閒比較，前端回報分數無法杜絕作弊。雲端進度需遊戲接入 SDK，後續可加入逐款遊戲的伺服器驗證；多人遊戲仍需獨立後端。
+遊戲 SDK 與榜單設定見 [遊戲開發指南](docs/game-dev/game-development.md)，平台 API 與後台細節見 [平台參考](docs/platform-api.md)。生涯摘要依帳號公開範圍設定顯示，排行榜仍公開玩家名稱、最佳成績與排名；訪客及管理預覽不產生帳號記錄。活躍時間以大廳前景焦點與 15 秒心跳估計，中斷超過 30 秒不補算；同時在多裝置遊玩可能重疊計時。排行榜用於休閒比較，前端回報分數無法杜絕作弊。雲端進度需遊戲接入 SDK，後續可加入逐款遊戲的伺服器驗證；多人遊戲仍需獨立後端。
 
 本人生涯的「我的進步」按遊戲及榜單顯示最近 30 局趨勢、逐局突破標記、歷來最佳與突破次數。突破以全部歷史成績比較，首次成績是起點，同分不算突破；同一榜單的版本合併追蹤，不同榜單分開計算。趨勢與逐局資料只有本人可見，下架後仍可查閱。排行榜也顯示距離並列前一組名次的分數差，支援分數越高／越低越好的榜單。
